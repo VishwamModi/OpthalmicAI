@@ -168,11 +168,7 @@ export function HomePage({ onNavigate }: { onNavigate: (view: string) => void })
           </div>
 
           <div className="bg-black rounded-lg overflow-hidden shadow-2xl aspect-video">
-            <video className="w-full h-full object-cover" controls>
-              <source src="/images/app_overview.mov" type="video/quicktime" />
-              <source src="/videos/demo.mp4" type="video/mp4" />
-              Your browser does not support the video tag.
-            </video>
+            <img src="/images/fundus_in_use.jpg" alt="Platform workflow preview" className="w-full h-full object-cover" />
           </div>
 
           <div className="mt-8 text-center">
