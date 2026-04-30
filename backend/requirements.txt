@@ -1,0 +1,15 @@
+torch
+torchvision
+pillow
+numpy
+fastapi
+uvicorn
+python-multipart
+opencv-python
+grad-cam
+timm
+segmentation-models-pytorch
+sqlalchemy
+psycopg2-binary
+google-genai
+python-dotenv
