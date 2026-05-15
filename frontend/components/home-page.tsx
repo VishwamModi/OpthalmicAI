@@ -6,6 +6,9 @@ import { useEffect, useRef, useState } from 'react';
 export function HomePage({ onNavigate }: { onNavigate: (view: string) => void }) {
   const galleryRef = useRef<HTMLDivElement | null>(null);
   const [autoScrollEnabled, setAutoScrollEnabled] = useState(true);
+  const overviewVideoUrl =
+    process.env.NEXT_PUBLIC_APP_OVERVIEW_YT ??
+    'https://www.youtube.com/embed/Sj0TPbHA6Vk';
 
   const galleryImages = [
     { filename: 'fundus-camera.jpg', description: 'Fundus Camera Device' },
@@ -168,15 +171,20 @@ export function HomePage({ onNavigate }: { onNavigate: (view: string) => void })
           </div>
 
           <div className="bg-black rounded-lg overflow-hidden shadow-2xl aspect-video">
-            <video
-              className="w-full h-full object-cover"
-              controls
-              preload="metadata"
-              playsInline
-            >
-              <source src="/images/app_overview.mov" type="video/quicktime" />
-              Your browser does not support the video tag.
-            </video>
+            {overviewVideoUrl ? (
+              <iframe
+                className="w-full h-full"
+                src={overviewVideoUrl}
+                title="OpthalmicAI walkthrough"
+                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+                referrerPolicy="strict-origin-when-cross-origin"
+                allowFullScreen
+              />
+            ) : (
+              <div className="flex h-full w-full items-center justify-center px-6 text-center text-sm text-gray-300">
+                Add a YouTube embed URL in NEXT_PUBLIC_APP_OVERVIEW_YT to show the walkthrough video.
+              </div>
+            )}
           </div>
 
           <div className="mt-8 text-center">

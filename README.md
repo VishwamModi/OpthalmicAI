@@ -5,14 +5,14 @@ OpthalmicAI is a full-stack retinal screening app with:
 - a **Next.js frontend** for landing, login, uploads, dashboard, and reports
 - a **FastAPI backend** for authentication, inference, Grad-CAM, and segmentation
 - **PyTorch model weights** in [Models/](Models)
-- a bundled **app overview video** and UI images in [frontend/public/images/](frontend/public/images)
+- a **YouTube-hosted walkthrough video** and UI images in [frontend/public/images/](frontend/public/images)
 
 ## What is included
 
 ### Frontend
 - [frontend/](frontend)
 - Public UI assets in [frontend/public/images/](frontend/public/images)
-- Overview demo video: [frontend/public/images/app_overview.mov](frontend/public/images/app_overview.mov)
+- Walkthrough video is embedded from YouTube (see `NEXT_PUBLIC_APP_OVERVIEW_YT` below)
 
 ### Backend
 - [backend/](backend)
@@ -21,11 +21,11 @@ OpthalmicAI is a full-stack retinal screening app with:
 ### Models
 - [Models/](Models)
 - DR classifier weights and segmentation weights used at inference time
-- Git LFS tracking is enabled for large `.mov`, `.pt`, and `.pth` files
+- Git LFS tracking is enabled for large `.pt` and `.pth` files
 
 ## Important GitHub note
 
-The overview video is about 406 MB, so it cannot be pushed to GitHub as a normal file. This repository is prepared for **Git LFS**, which is required for the video and recommended for the model weights.
+Model weights are large, so Git LFS is required for `.pt` and `.pth` files.
 
 If Git LFS is not installed yet:
 
@@ -70,11 +70,12 @@ npm install
 npm run dev
 ```
 
-If the frontend needs a different backend URL, set:
+If the frontend needs a different backend URL or a YouTube walkthrough embed URL, set:
 
 ```bash
 # frontend/.env.local
 NEXT_PUBLIC_API_BASE_URL=http://localhost:8000
+NEXT_PUBLIC_APP_OVERVIEW_YT=https://www.youtube.com/embed/VIDEO_ID
 ```
 
 ## GitHub upload steps
@@ -103,20 +104,22 @@ Recommended as **two Render services**:
 - **Root Directory:** `frontend`
 - **Build Command:** `npm install && npm run build`
 - **Start Command:** `npm run start -- -p $PORT`
-- **Environment Variable:** `NEXT_PUBLIC_API_BASE_URL=https://<your-backend-service>.onrender.com`
+- **Environment Variables:**
+	- `NEXT_PUBLIC_API_BASE_URL=https://<your-backend-service>.onrender.com`
+	- `NEXT_PUBLIC_APP_OVERVIEW_YT=https://www.youtube.com/embed/VIDEO_ID`
 
 The included [render.yaml](render.yaml) can be used as a starting point.
 
 ## Troubleshooting
 
-- If the video does not appear on GitHub, confirm Git LFS is installed and the file was committed after LFS tracking was enabled.
+- If the video does not appear, confirm `NEXT_PUBLIC_APP_OVERVIEW_YT` points to a valid YouTube embed URL.
 - If the frontend cannot reach the backend, verify `NEXT_PUBLIC_API_BASE_URL` points to the deployed backend URL.
 - If models fail to load on Render, make sure [Models/](Models) was pushed correctly through Git LFS and is present at runtime.
 - If browser cache looks stale after deploy, do a hard refresh.
 
 ## Quick checklist before pushing
 
-- [ ] `frontend/public/images/app_overview.mov` is tracked by Git LFS
+- [ ] `NEXT_PUBLIC_APP_OVERVIEW_YT` is set to your YouTube embed URL
 - [ ] `Models/` is present in the repo
 - [ ] `README.md` is updated
 - [ ] `render.yaml` matches your deployment setup

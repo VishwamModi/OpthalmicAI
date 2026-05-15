@@ -20,6 +20,9 @@ frontend/.env*.local
 frontend/node_modules/
 frontend/.next/
 
+# Local media (hosted on YouTube instead)
+frontend/public/images/app_overview.mov
+
 # Misc
 .vscode/
 
