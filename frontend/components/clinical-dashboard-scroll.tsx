@@ -142,6 +142,7 @@ function ScanningOverlay({ stageText }: { stageText: string }) {
 export function ClinicalDashboard({ onLogout }: ClinicalDashboardProps) {
   const inputRef = useRef<HTMLInputElement>(null);
   const uploadRef = useRef<HTMLElement | null>(null);
+  const resultsRef = useRef<HTMLElement | null>(null);
   const severityRef = useRef<HTMLElement | null>(null);
   const featuresRef = useRef<HTMLElement | null>(null);
   const dcaRef = useRef<HTMLElement | null>(null);
@@ -157,6 +158,7 @@ export function ClinicalDashboard({ onLogout }: ClinicalDashboardProps) {
   const [reportType, setReportType] = useState<'clinical' | 'patient'>('clinical');
   const [showAiReport, setShowAiReport] = useState(false);
   const [isChatBotOpen, setIsChatBotOpen] = useState(false);
+  const [previewMode, setPreviewMode] = useState<'original' | 'gradcam'>('original');
   const [messages, setMessages] = useState<Array<{ role: 'user' | 'ai'; content: string }>>([]);
   const [input, setInput] = useState('');
   const [chatLoading, setChatLoading] = useState(false);
@@ -287,6 +289,7 @@ export function ClinicalDashboard({ onLogout }: ClinicalDashboardProps) {
   const handleImageUpload = async (file: File) => {
     setError(null);
     setScanResults(null);
+    setPreviewMode('original');
 
     const previewUrl = URL.createObjectURL(file);
     setSelectedImage(previewUrl);
@@ -314,7 +317,7 @@ export function ClinicalDashboard({ onLogout }: ClinicalDashboardProps) {
 
       setScanResults(data as ScanResults);
       setTimeout(() => {
-        severityRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        resultsRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
       }, 100);
     } catch (exception: any) {
       setError(exception?.message || 'Upload failed');
@@ -583,6 +586,81 @@ export function ClinicalDashboard({ onLogout }: ClinicalDashboardProps) {
 
         {scanResults ? (
           <>
+            <section ref={resultsRef} className="scroll-mt-28">
+              <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+                <SectionHeading
+                  title="Analysis Summary"
+                  subtitle="Use the toggle to switch between the original scan and the Grad-CAM heatmap."
+                />
+
+                <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+                  <div className="inline-flex rounded-lg border border-slate-200 bg-white p-1">
+                    <button
+                      onClick={() => setPreviewMode('original')}
+                      className={[
+                        'px-3 py-1.5 rounded-md text-xs font-semibold transition-colors',
+                        previewMode === 'original'
+                          ? 'bg-[#A85D4A] text-white'
+                          : 'text-slate-500 hover:text-slate-900',
+                      ].join(' ')}
+                    >
+                      Original Image
+                    </button>
+                    <button
+                      onClick={() => setPreviewMode('gradcam')}
+                      disabled={!gradcamSrc}
+                      className={[
+                        'px-3 py-1.5 rounded-md text-xs font-semibold transition-colors',
+                        previewMode === 'gradcam'
+                          ? 'bg-[#A85D4A] text-white'
+                          : 'text-slate-500 hover:text-slate-900',
+                        !gradcamSrc ? 'cursor-not-allowed opacity-40 hover:text-slate-500' : '',
+                      ].join(' ')}
+                    >
+                      Grad-CAM
+                    </button>
+                  </div>
+
+                  <div className="mt-3 flex h-[420px] items-center justify-center overflow-hidden rounded-xl border border-slate-200 bg-white">
+                    {previewMode === 'gradcam' ? (
+                      gradcamSrc ? (
+                        <img
+                          src={gradcamSrc}
+                          alt="Grad-CAM heatmap"
+                          className="max-h-full max-w-full object-contain"
+                        />
+                      ) : (
+                        <div className="grid h-full w-full place-items-center px-6 text-center text-sm text-slate-500">
+                          Grad-CAM is not available for this scan.
+                        </div>
+                      )
+                    ) : (
+                      <img
+                        src={selectedImage ?? ''}
+                        alt="Original retinal scan"
+                        className="max-h-full max-w-full object-contain"
+                      />
+                    )}
+                  </div>
+                </div>
+
+                <div className="mt-4 rounded-2xl border border-slate-200 bg-slate-50 p-4">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <span className="rounded-full bg-[#A85D4A]/10 px-3 py-1 text-xs font-semibold text-[#A85D4A]">
+                      {scanResults.diagnosis}
+                    </span>
+                    <span className="rounded-full border border-slate-200 bg-white px-3 py-1 text-xs text-slate-600">
+                      {scanResults.etdrsLevel}
+                    </span>
+                    <span className="rounded-full border border-slate-200 bg-white px-3 py-1 text-xs text-slate-600">
+                      Confidence {scanResults.aiConfidence.toFixed(1)}%
+                    </span>
+                  </div>
+                  <p className="mt-3 text-sm leading-7 text-slate-600">{scanResults.recommendation}</p>
+                </div>
+              </div>
+            </section>
+
             <section className="scroll-mt-28">
               <div className="grid grid-cols-1 gap-4 md:grid-cols-4">
                 {[

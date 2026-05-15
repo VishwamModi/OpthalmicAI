@@ -140,7 +140,7 @@ export function OverviewTab({ patient, results }: OverviewTabProps) {
       <div className="rounded-lg border border-[#E5DDD6] bg-white overflow-hidden">
         <div className="px-6 py-4 border-b border-[#E5DDD6]">
           <h3 className="font-semibold text-[#2C2825]">Clinical Feature Summary</h3>
-          <p className="text-xs text-[#736D68] mt-0.5">Top findings from AI segmentation analysis</p>
+          <p className="text-xs text-[#736D68] mt-0.5 text-justify">Top findings from AI segmentation analysis</p>
         </div>
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
@@ -187,7 +187,7 @@ export function OverviewTab({ patient, results }: OverviewTabProps) {
           <Activity className="w-4 h-4 text-[#A85D4A]" />
           Clinical Recommendation
         </h3>
-        <p className="text-sm text-[#736D68] leading-relaxed">{r.recommendation}</p>
+        <p className="text-sm text-[#736D68] leading-relaxed text-justify">{r.recommendation}</p>
       </div>
     </div>
   );

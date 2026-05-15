@@ -75,7 +75,7 @@ export function SeverityStagingTab({ stages, currentLevel }: SeverityStagingTabP
                         </span>
                       )}
                     </div>
-                    <p className="text-xs text-[#736D68] mt-1 leading-relaxed">{stage.description}</p>
+                    <p className="text-xs text-[#736D68] mt-1 leading-relaxed text-justify">{stage.description}</p>
                   </div>
                 </div>
               );
@@ -119,7 +119,7 @@ export function SeverityStagingTab({ stages, currentLevel }: SeverityStagingTabP
           >
             <p className="text-xs text-[#736D68] font-medium">{item.label}</p>
             <p className="text-2xl font-bold" style={{ color: item.color }}>{item.value}</p>
-            <p className="text-xs text-[#736D68]">{item.sub}</p>
+            <p className="text-xs text-[#736D68] text-justify">{item.sub}</p>
           </div>
         ))}
       </div>

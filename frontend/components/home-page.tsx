@@ -8,6 +8,8 @@ export function HomePage({ onNavigate }: { onNavigate: (view: string) => void })
   const [autoScrollEnabled, setAutoScrollEnabled] = useState(true);
 
   const galleryImages = [
+    { filename: 'fundus-camera.jpg', description: 'Fundus Camera Device' },
+    { filename: 'fundus_in_use.jpg', description: 'Eye Examination Setup' },
     { filename: 'normal.jpeg', description: 'No DR' },
     { filename: 'mild.jpeg', description: 'Mild NPDR' },
     { filename: 'moderate.jpeg', description: 'Moderate NPDR' },
@@ -18,8 +20,6 @@ export function HomePage({ onNavigate }: { onNavigate: (view: string) => void })
     { filename: 'report_pg1.png', description: 'Clinical Report Page 1' },
     { filename: 'report_pg2.png', description: 'Clinical Report Page 2' },
     { filename: 'report_pg3.png', description: 'Clinical Report Page 3' },
-    { filename: 'fundus_in_use.jpg', description: 'Eye Examination Setup' },
-    { filename: 'fundus-camera.jpg', description: 'Fundus Camera Device' },
   ];
 
   const scrollToSection = (id: string) => {
@@ -96,19 +96,19 @@ export function HomePage({ onNavigate }: { onNavigate: (view: string) => void })
         <div className="max-w-6xl mx-auto">
           <p className="text-sm font-semibold uppercase tracking-wider text-[#6E4B34] text-center mb-3">About</p>
           <h2 className="text-4xl md:text-5xl font-bold tracking-tight text-[#3B2416] text-center mb-4">Clinical Intelligence Stack</h2>
-          <p className="text-center text-[#6E4B34] leading-relaxed max-w-3xl mx-auto mb-12">Opthalmic combines DR staging, lesion segmentation, explainability, decision-curve support, structured notes, and professional PDF reporting for each scan in one continuous workflow.</p>
+          <p className="text-center text-[#6E4B34] leading-relaxed text-justify max-w-3xl mx-auto mb-12">Opthalmic combines DR staging, lesion segmentation, explainability, decision-curve support, structured notes, and professional PDF reporting for each scan in one continuous workflow.</p>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
             <div className="bg-white rounded-lg p-8 border border-[#E8D9C8]">
               <h3 className="text-xl font-bold text-[#3B2416] mb-3">DR Staging</h3>
-              <p className="text-[#6E4B34] leading-relaxed">EfficientNet-B3 with fundus preprocessing (masking + CLAHE) estimates ETDRS severity and confidence for triage support.</p>
+              <p className="text-[#6E4B34] leading-relaxed text-justify">EfficientNet-B3 with fundus preprocessing (masking + CLAHE) estimates ETDRS severity and confidence for triage support.</p>
             </div>
             <div className="bg-white rounded-lg p-8 border border-[#E8D9C8]">
               <h3 className="text-xl font-bold text-[#3B2416] mb-3">Segmentation</h3>
-              <p className="text-[#6E4B34] leading-relaxed">Dedicated lesion models generate OD, MA, HE, EX, and SE masks to derive objective feature counts, areas, and DME-linked indicators.</p>
+              <p className="text-[#6E4B34] leading-relaxed text-justify">Dedicated lesion models generate OD, MA, HE, EX, and SE masks to derive objective feature counts, areas, and DME-linked indicators.</p>
             </div>
             <div className="bg-white rounded-lg p-8 border border-[#E8D9C8]">
               <h3 className="text-xl font-bold text-[#3B2416] mb-3">Decision Support</h3>
-              <p className="text-[#6E4B34] leading-relaxed">Grad-CAM, DCA curves, clinical notes, and dual narratives (clinical + patient) are generated automatically per scan.</p>
+              <p className="text-[#6E4B34] leading-relaxed text-justify">Grad-CAM, DCA curves, clinical notes, and dual narratives (clinical + patient) are generated automatically per scan.</p>
             </div>
           </div>
         </div>
@@ -120,7 +120,7 @@ export function HomePage({ onNavigate }: { onNavigate: (view: string) => void })
           <div className="text-center mb-16">
             <p className="text-sm font-semibold uppercase tracking-wider text-[#6E4B34] mb-3">Workflow</p>
             <h2 className="text-4xl md:text-5xl font-bold tracking-tight text-[#3B2416] mb-4">How It Works</h2>
-            <p className="text-[#6E4B34] leading-relaxed max-w-3xl mx-auto">A full scan lifecycle from upload and segmentation to risk interpretation, notes, and printable reporting.</p>
+            <p className="text-[#6E4B34] leading-relaxed text-justify max-w-3xl mx-auto">A full scan lifecycle from upload and segmentation to risk interpretation, notes, and printable reporting.</p>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-4 gap-8 mb-16">
@@ -129,28 +129,28 @@ export function HomePage({ onNavigate }: { onNavigate: (view: string) => void })
                 <img src="/images/fundus-camera.jpg" alt="Capture" className="w-full h-full object-cover" />
               </div>
               <h4 className="text-xl font-bold text-[#3B2416] mb-3">Capture</h4>
-              <p className="text-sm text-[#6E4B34]">Upload a fundus scan and run retinal validation, masking, and normalization.</p>
+              <p className="text-sm text-[#6E4B34] text-justify">Upload a fundus scan and run retinal validation, masking, and normalization.</p>
             </div>
             <div className="flex flex-col items-center text-center">
               <div className="w-48 h-48 rounded-lg bg-[#F4EADD] mb-6 overflow-hidden border-2 border-[#3B2416]">
                 <img src="/images/analysis-vision.svg" alt="Analysis" className="w-full h-full object-cover" />
               </div>
               <h4 className="text-xl font-bold text-[#3B2416] mb-3">Stage</h4>
-              <p className="text-sm text-[#6E4B34]">DR severity and confidence are estimated with ETDRS-level mapping.</p>
+              <p className="text-sm text-[#6E4B34] text-justify">DR severity and confidence are estimated with ETDRS-level mapping.</p>
             </div>
             <div className="flex flex-col items-center text-center">
               <div className="w-48 h-48 rounded-lg bg-[#F4EADD] mb-6 overflow-hidden border-2 border-[#3B2416]">
                 <img src="/images/proliferative.jpeg" alt="Segmentation" className="w-full h-full object-cover" />
               </div>
               <h4 className="text-xl font-bold text-[#3B2416] mb-3">Segment</h4>
-              <p className="text-sm text-[#6E4B34]">Lesion masks and overlays quantify MA, HE, EX, SE, and OD features.</p>
+              <p className="text-sm text-[#6E4B34] text-justify">Lesion masks and overlays quantify MA, HE, EX, SE, and OD features.</p>
             </div>
             <div className="flex flex-col items-center text-center">
               <div className="w-48 h-48 rounded-lg bg-white mb-6 overflow-hidden border-2 border-[#3B2416]">
                 <img src="/images/report_pg1.png" alt="Report" className="w-full h-full object-cover" />
               </div>
               <h4 className="text-xl font-bold text-[#3B2416] mb-3">Report</h4>
-              <p className="text-sm text-[#6E4B34]">Structured reports, technical notes, DCA interpretation, and PDF export are generated per scan.</p>
+              <p className="text-sm text-[#6E4B34] text-justify">Structured reports, technical notes, DCA interpretation, and PDF export are generated per scan.</p>
             </div>
           </div>
         </div>
@@ -162,13 +162,21 @@ export function HomePage({ onNavigate }: { onNavigate: (view: string) => void })
           <div className="text-center mb-12">
             <p className="text-sm font-semibold uppercase tracking-wider text-[#D1D5DB] mb-3">Watch</p>
             <h2 className="text-4xl font-bold text-white mb-4">Platform Walkthrough</h2>
-            <p className="text-gray-300 max-w-2xl mx-auto">
+            <p className="text-gray-300 text-justify max-w-2xl mx-auto">
               Watch the full journey from upload to interpretability and final report generation.
             </p>
           </div>
 
           <div className="bg-black rounded-lg overflow-hidden shadow-2xl aspect-video">
-            <img src="/images/fundus_in_use.jpg" alt="Platform workflow preview" className="w-full h-full object-cover" />
+            <video
+              className="w-full h-full object-cover"
+              controls
+              preload="metadata"
+              playsInline
+            >
+              <source src="/images/app_overview.mov" type="video/quicktime" />
+              Your browser does not support the video tag.
+            </video>
           </div>
 
           <div className="mt-8 text-center">
@@ -185,7 +193,7 @@ export function HomePage({ onNavigate }: { onNavigate: (view: string) => void })
           <div className="max-w-6xl mx-auto text-center">
             <p className="text-sm font-semibold uppercase tracking-wider text-[#6E4B34] mb-3">Visual Showcase</p>
             <h2 className="text-4xl md:text-5xl font-bold tracking-tight text-[#3B2416] mb-4">Clinical Gallery</h2>
-            <p className="text-[#6E4B34] leading-relaxed max-w-3xl mx-auto">
+            <p className="text-[#6E4B34] leading-relaxed text-justify max-w-3xl mx-auto">
               Explore disease stages, explainability visualizations, decision curve analysis, and comprehensive clinical reports.
             </p>
           </div>
@@ -211,13 +219,26 @@ export function HomePage({ onNavigate }: { onNavigate: (view: string) => void })
             onMouseDown={() => setAutoScrollEnabled(false)}
             onWheel={() => setAutoScrollEnabled(false)}
             onTouchStart={() => setAutoScrollEnabled(false)}
-            className="flex gap-4 overflow-x-auto pb-4 snap-x snap-mandatory [scrollbar-width:none] [&::-webkit-scrollbar]:hidden px-6"
+            className="flex gap-5 overflow-x-auto pb-6 snap-x snap-mandatory [scrollbar-width:none] [&::-webkit-scrollbar]:hidden px-6"
           >
             {galleryImages.map((item, idx) => (
-              <div key={`${item.filename}-${idx}`} className="min-w-[280px] md:min-w-[340px] aspect-[16/10] rounded-lg overflow-hidden border-2 border-[#E8D9C8] snap-start transition-all duration-300 hover:-translate-y-2 hover:shadow-2xl hover:border-[#6E4B34] bg-white flex flex-col">
-                <img src={`/images/${item.filename}`} alt={item.description} className="flex-1 w-full object-cover transition-transform duration-300 hover:scale-105" />
-                <div className="bg-white px-3 py-2 border-t border-[#E8D9C8]">
-                  <p className="text-xs font-semibold text-[#6E4B34] text-center">{item.description}</p>
+              <div
+                key={`${item.filename}-${idx}`}
+                className={`group min-w-[280px] md:min-w-[340px] snap-start transition-all duration-300 hover:-translate-y-2 hover:shadow-2xl bg-white flex flex-col overflow-hidden border-2 border-[#E8D9C8] rounded-2xl`}
+              >
+                <div className="relative h-56 md:h-64 w-full overflow-hidden bg-[#F7F5F0]">
+                  <img
+                    src={`/images/${item.filename}`}
+                    alt={item.description}
+                    className="w-full h-full object-cover object-center transition-transform duration-500 group-hover:scale-105"
+                  />
+                  <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/20 to-transparent opacity-0 transition-opacity duration-300 group-hover:opacity-100" />
+                  <div className="absolute inset-x-0 bottom-0 p-4 opacity-0 transition-all duration-300 translate-y-3 group-hover:opacity-100 group-hover:translate-y-0 pointer-events-none">
+                    <p className="text-sm font-semibold text-white">{item.description}</p>
+                  </div>
+                  <div className="absolute left-3 top-3 rounded-full bg-white/90 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wide text-[#6E4B34] shadow-sm">
+                    {String(idx + 1).padStart(2, '0')}
+                  </div>
                 </div>
               </div>
             ))}

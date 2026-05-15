@@ -100,7 +100,7 @@ export function DecisionCurveTab({ data }: DecisionCurveTabProps) {
             style={{ background: item.bg, borderColor: item.border }}
           >
             <h4 className="font-semibold text-sm mb-1" style={{ color: item.color }}>{item.title}</h4>
-            <p className="text-xs text-[#736D68] leading-relaxed">{item.desc}</p>
+            <p className="text-xs text-[#736D68] leading-relaxed text-justify">{item.desc}</p>
           </div>
         ))}
       </div>
