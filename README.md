@@ -96,9 +96,9 @@ If your branch is not `main`, replace it with your branch name.
 Recommended as **two Render services**:
 
 ### 1) Backend web service
-- **Root Directory:** `backend`
-- **Build Command:** `pip install -r requirements.txt`
-- **Start Command:** `uvicorn main:app --host 0.0.0.0 --port $PORT`
+- **Root Directory:** repo root (`.`)
+- **Build Command:** `pip install -r backend/requirements.txt`
+- **Start Command:** `uvicorn backend.main:app --host 0.0.0.0 --port $PORT`
 
 ### 2) Frontend web service
 - **Root Directory:** `frontend`
