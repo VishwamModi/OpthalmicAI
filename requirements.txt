@@ -5,7 +5,7 @@ numpy
 fastapi
 uvicorn
 python-multipart
-opencv-python
+opencv-python-headless
 grad-cam
 timm
 segmentation-models-pytorch
