@@ -14,10 +14,10 @@ from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.orm import Session
 from pydantic import BaseModel, Field
 
-from .database import SessionLocal, engine, IS_SQLITE
-from .models import Base, Doctor, Patient, Scan
-from .ai_engine import AIEngine, calculate_decision_curve_data, load_validation_cohort
-from .llm_service import generate_chat_reply
+from backend.database import SessionLocal, engine, IS_SQLITE
+from backend.models import Base, Doctor, Patient, Scan
+from backend.ai_engine import AIEngine, calculate_decision_curve_data, load_validation_cohort
+from backend.llm_service import generate_chat_reply
 
 
 # Class labels – must match training dataset order
@@ -57,8 +57,8 @@ async def health() -> Dict[str, object]:
     - whether Grad-CAM deps are available
     - whether GEMINI_API_KEY is present (not validated)
     """
-    from . import ai_engine as _ae
-    from .database import SQLALCHEMY_DATABASE_URL
+    from backend import ai_engine as _ae
+    from backend.database import SQLALCHEMY_DATABASE_URL
 
     def _redact_db_url(url: str) -> str:
         try:
