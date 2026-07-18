@@ -138,7 +138,7 @@ def resolve_image_directory(parent, directory_name):
 def find_aptos_source():
     """Prefer a labelled held-out test CSV, then validation, then train."""
     csv_priority = [
-        ("test.csv", "external_test", "test_images"),
+        ("test.csv", "provided_test", "test_images"),
         ("valid.csv", "provided_validation", "val_images"),
         ("train_1.csv", "internal_validation", "train_images"),
         ("train.csv", "internal_validation", "train_images"),
