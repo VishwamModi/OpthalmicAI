@@ -93,7 +93,7 @@ export function OverviewTab({ patient, results }: OverviewTabProps) {
           </div>
         </div>
 
-        {/* AI Confidence */}
+        {/* Uncalibrated ordinal proximity */}
         <div className="flex flex-col items-center gap-1 min-w-[120px]">
           <div className="relative w-24 h-24">
             <svg viewBox="0 0 36 36" className="w-24 h-24 -rotate-90">
@@ -109,7 +109,7 @@ export function OverviewTab({ patient, results }: OverviewTabProps) {
               <span className="text-xl font-bold text-[#2C2825]">{r.aiConfidence}%</span>
             </div>
           </div>
-          <span className="text-xs text-[#736D68] font-medium">AI Confidence</span>
+          <span className="text-xs text-[#736D68] font-medium">Ordinal Proximity (Uncalibrated)</span>
         </div>
       </div>
 

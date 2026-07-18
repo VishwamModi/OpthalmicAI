@@ -75,8 +75,19 @@ If the frontend needs a different backend URL or a YouTube walkthrough embed URL
 ```bash
 # frontend/.env.local
 NEXT_PUBLIC_API_BASE_URL=http://localhost:8000
-NEXT_PUBLIC_APP_OVERVIEW_YT=https://www.youtube.com/embed/VIDEO_ID
+NEXT_PUBLIC_APP_OVERVIEW_YT=https://www.youtube.com/embed/opcj0hZPnxU
 ```
+
+## Deployment and publication resources
+
+- [Deployment from basics](DEPLOYMENT_FROM_BASICS.md)
+- [Kaggle publication evaluation notebook](research/OphthalmicAI_Kaggle_Publication_Evaluation.ipynb)
+- [Publication results attachment checklist](research/PUBLICATION_RESULTS_ATTACHMENT_CHECKLIST.md)
+- [Comprehensive publication results package](research/OphthalmicAI_Comprehensive_Publication_Results_Package.docx)
+
+The deployed application is intentionally limited to DR severity grading,
+DR-related segmentation, and Grad-CAM. Glaucoma and cataract checkpoints are
+reported only as DR-pretrained transfer-learning experiments for research.
 
 ## GitHub upload steps
 
@@ -106,7 +117,7 @@ Recommended as **two Render services**:
 - **Start Command:** `npm run start -- -p $PORT`
 - **Environment Variables:**
 	- `NEXT_PUBLIC_API_BASE_URL=https://<your-backend-service>.onrender.com`
-	- `NEXT_PUBLIC_APP_OVERVIEW_YT=https://www.youtube.com/embed/VIDEO_ID`
+	- `NEXT_PUBLIC_APP_OVERVIEW_YT=https://www.youtube.com/embed/opcj0hZPnxU`
 
 The included [render.yaml](render.yaml) can be used as a starting point.
 

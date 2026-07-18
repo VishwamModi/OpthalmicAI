@@ -3,7 +3,6 @@ from __future__ import annotations
 import csv
 import json
 import math
-import random
 import os
 import base64
 from contextlib import nullcontext
@@ -900,11 +899,12 @@ class AIEngine:
         diagnosis = "Diabetic Retinopathy" if dr_stage > 0 else "No Referable DR"
         etdrsLevel = self._dr_stage_label(dr_stage)
 
-        # Mock confidence as a percentage, with small variance.
-        base_conf = 96.0 - (dr_stage * 10.0)
-        noise = random.uniform(-3.5, 3.5)
-        ai_confidence = max(1.0, min(99.9, base_conf + noise))
-        ai_confidence = round(ai_confidence, 1)
+        # The checkpoint is an ordinal regressor, not a calibrated probabilistic
+        # classifier. Expose deterministic proximity to the selected integer
+        # grade for UI context, and label it explicitly as uncalibrated.
+        clipped_score = max(0.0, min(float(max_severity), raw_score))
+        ordinal_distance = abs(clipped_score - float(dr_stage))
+        ai_confidence = round(100.0 * max(0.0, 1.0 - ordinal_distance), 1)
 
         recommendation = self._build_recommendation(dr_stage)
 
@@ -987,6 +987,7 @@ class AIEngine:
             "maxSeverity": max_severity,
             "dr_score": dr_score,
             "aiConfidence": ai_confidence,
+            "confidenceType": "ordinal_proximity_uncalibrated",
             "modelVersion": "Opthalmic v1.0 (EfficientNet-B3)",
             "recommendation": recommendation,
             "clinicalFeatures": clinical_features,
@@ -1000,4 +1001,3 @@ class AIEngine:
             "dcaCurveData": dca_curve_data,
             "severityStages": severity_stages,
         }
-

@@ -36,6 +36,7 @@ type ScanResults = {
   severity: number;
   maxSeverity: number;
   aiConfidence: number;
+  confidenceType?: string;
   processingTime?: string;
   modelVersion?: string;
   recommendation: string;
@@ -164,7 +165,7 @@ export function ClinicalDashboard({ onLogout }: ClinicalDashboardProps) {
   const [chatLoading, setChatLoading] = useState(false);
   const [authSession, setAuthSession] = useState<AuthSession | null>(null);
   const [processingStage, setProcessingStage] = useState(0);
-  const [decisionCurveData, setDecisionCurveData] = useState<ScanResults['dcaCurveData']>(MOCK_RESULTS.dcaCurveData);
+  const [decisionCurveData, setDecisionCurveData] = useState<ScanResults['dcaCurveData']>([]);
 
   const processingStages = useMemo(
     () => [
@@ -246,7 +247,7 @@ export function ClinicalDashboard({ onLogout }: ClinicalDashboardProps) {
 
     async function loadDecisionCurve() {
       if (!scanResults) {
-        setDecisionCurveData(MOCK_RESULTS.dcaCurveData);
+        setDecisionCurveData([]);
         return;
       }
 
@@ -265,7 +266,7 @@ export function ClinicalDashboard({ onLogout }: ClinicalDashboardProps) {
           setDecisionCurveData(
             scanResults?.dcaCurveData && scanResults.dcaCurveData.length > 0
               ? scanResults.dcaCurveData
-              : MOCK_RESULTS.dcaCurveData
+              : []
           );
         }
       }
@@ -357,7 +358,7 @@ export function ClinicalDashboard({ onLogout }: ClinicalDashboardProps) {
     if (reportType === 'clinical') {
       return [
         `Diagnosis: ${scanResults.diagnosis} (${scanResults.etdrsLevel}). ICD-10: ${scanResults.icd10}.`,
-        `Model confidence is ${scanResults.aiConfidence.toFixed(1)}% with severity score ${severityScore.toFixed(0)}%.`,
+        `The uncalibrated ordinal-proximity indicator is ${scanResults.aiConfidence.toFixed(1)}% with severity score ${severityScore.toFixed(0)}%.`,
         clinicalFeaturesTop
           ? `Key extracted features: ${clinicalFeaturesTop}.`
           : 'Feature extraction was completed; detailed metrics are available in Clinical Features.',
@@ -367,7 +368,7 @@ export function ClinicalDashboard({ onLogout }: ClinicalDashboardProps) {
 
     return [
       `Your eye scan suggests: ${scanResults.diagnosis}.`,
-      `Confidence is ${scanResults.aiConfidence.toFixed(1)}%. This supports the doctor’s decision, but it is not the final diagnosis by itself.`,
+      `Ordinal proximity is ${scanResults.aiConfidence.toFixed(1)}%. This is not a calibrated probability and is not a diagnosis.`,
       `Recommended next step: ${scanResults.recommendation}`,
     ];
   }, [scanResults, reportType, severityScore]);
@@ -653,7 +654,7 @@ export function ClinicalDashboard({ onLogout }: ClinicalDashboardProps) {
                       {scanResults.etdrsLevel}
                     </span>
                     <span className="rounded-full border border-slate-200 bg-white px-3 py-1 text-xs text-slate-600">
-                      Confidence {scanResults.aiConfidence.toFixed(1)}%
+                      Ordinal proximity {scanResults.aiConfidence.toFixed(1)}% (uncalibrated)
                     </span>
                   </div>
                   <p className="mt-3 text-sm leading-7 text-slate-600">{scanResults.recommendation}</p>
@@ -666,7 +667,7 @@ export function ClinicalDashboard({ onLogout }: ClinicalDashboardProps) {
                 {[
                   { label: 'Diagnosis', value: scanResults.diagnosis },
                   { label: 'ETDRS Level', value: scanResults.etdrsLevel },
-                  { label: 'AI Confidence', value: `${scanResults.aiConfidence.toFixed(1)}%` },
+                  { label: 'Ordinal proximity', value: `${scanResults.aiConfidence.toFixed(1)}% (uncalibrated)` },
                   { label: 'Severity Score', value: `${severityScore.toFixed(0)}%` },
                 ].map((item) => (
                   <div key={item.label} className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
@@ -698,13 +699,7 @@ export function ClinicalDashboard({ onLogout }: ClinicalDashboardProps) {
               <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
                 <SectionHeading title="Decision Curve Analysis" subtitle="Net clinical benefit across threshold probabilities and treatment strategies." />
                 <DecisionCurveAnalysis
-                  data={
-                    decisionCurveData && decisionCurveData.length > 0
-                      ? decisionCurveData
-                      : (scanResults as any).dcaCurveData && (scanResults as any).dcaCurveData.length > 0
-                        ? (scanResults as any).dcaCurveData
-                        : MOCK_RESULTS.dcaCurveData
-                  }
+                  data={decisionCurveData || []}
                 />
               </div>
             </section>
@@ -811,7 +806,7 @@ export function ClinicalDashboard({ onLogout }: ClinicalDashboardProps) {
                         Severity: <span className="font-semibold text-slate-900">{scanResults.etdrsLevel}</span>
                       </p>
                       <p>
-                        AI confidence: <span className="font-semibold text-slate-900">{scanResults.aiConfidence.toFixed(1)}%</span>
+                        Ordinal proximity: <span className="font-semibold text-slate-900">{scanResults.aiConfidence.toFixed(1)}% (uncalibrated)</span>
                       </p>
                       <p>{scanResults.recommendation}</p>
                     </div>
@@ -835,7 +830,7 @@ export function ClinicalDashboard({ onLogout }: ClinicalDashboardProps) {
                   title="Decision Curve Analysis"
                   subtitle="Preview curve is shown below. It will be replaced with patient-specific or cohort data after scan analysis."
                 />
-                <DecisionCurveAnalysis data={decisionCurveData || MOCK_RESULTS.dcaCurveData} />
+                <DecisionCurveAnalysis data={decisionCurveData || []} />
               </div>
             </section>
             <section ref={notesRef} id="notes" className="scroll-mt-28">
@@ -936,7 +931,7 @@ export function ClinicalDashboard({ onLogout }: ClinicalDashboardProps) {
                 <textarea
                   value={input}
                   onChange={(event) => setInput(event.target.value)}
-                  placeholder="Ask Copilot…"
+                  placeholder="Ask ChatBot…"
                   rows={2}
                   className="flex-1 resize-none rounded-lg border border-[#E5DDD6] bg-white px-3 py-2 text-sm text-[#2C2825] placeholder-[#A39A8E] focus:border-[#A85D4A]/60 focus:outline-none focus:ring-0"
                   onKeyDown={(event) => {

@@ -158,7 +158,7 @@ export function PrintReport({
               <td>{r.icd10 || '—'}</td>
             </tr>
             <tr>
-              <td><strong>AI Confidence Score</strong></td>
+              <td><strong>Ordinal Proximity (Uncalibrated)</strong></td>
               <td style={{ fontWeight: 700, fontSize: 12 }}>
                 {typeof r.aiConfidence === 'number' ? `${r.aiConfidence}%` : '—'}
               </td>

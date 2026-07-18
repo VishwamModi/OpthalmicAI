@@ -27,6 +27,15 @@ interface DecisionCurveAnalysisProps {
 export function DecisionCurveAnalysis({ data }: DecisionCurveAnalysisProps) {
   const chartData = useMemo(() => data || [], [data]);
 
+  if (chartData.length === 0) {
+    return (
+      <div className="rounded-2xl border border-amber-200 bg-amber-50 p-6 text-sm leading-6 text-amber-900">
+        Decision-curve analysis is unavailable because no real validation cohort has been configured.
+        Add image-level labels and predicted probabilities on the backend before using DCA as research evidence.
+      </div>
+    );
+  }
+
   return (
     <div className="flex flex-col gap-6">
       <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">

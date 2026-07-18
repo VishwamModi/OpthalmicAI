@@ -1,0 +1,17 @@
+.git
+.github
+.next
+**/__pycache__
+**/*.pyc
+**/.env
+**/api_keys.env
+frontend
+packaging
+Results
+Models/Cataract_EffNetB3.pt
+Models/EfficientNetB0.pth
+Models/EfficientNetB3.pt
+Models/Glaucoma_EffNetB3.pt
+Models/MobileNetV3_1.pth
+Models/Robust_Green_EffNetB3.pt
+backend/OphthalmicAI_Final_EffNetB3.pt

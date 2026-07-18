@@ -235,7 +235,7 @@ export function ClinicalDashboard({ onLogout }: ClinicalDashboardProps) {
     if (reportType === 'clinical') {
       return [
         `Diagnosis: ${scanResults.diagnosis} (${scanResults.etdrsLevel}). ICD-10: ${scanResults.icd10}.`,
-        `Model confidence is ${scanResults.aiConfidence.toFixed(1)}% with severity score ${severityScore.toFixed(0)}%.`,
+        `The uncalibrated ordinal-proximity indicator is ${scanResults.aiConfidence.toFixed(1)}% with severity score ${severityScore.toFixed(0)}%.`,
         clinicalFeaturesTop
           ? `Key extracted features: ${clinicalFeaturesTop}.`
           : 'Feature extraction was completed; detailed metrics are available in Clinical Features.',
@@ -245,7 +245,7 @@ export function ClinicalDashboard({ onLogout }: ClinicalDashboardProps) {
 
     return [
       `Your eye scan suggests: ${scanResults.diagnosis}.`,
-      `Confidence is ${scanResults.aiConfidence.toFixed(1)}%. This helps guide the doctor but is not the final decision by itself.`,
+      `Ordinal proximity is ${scanResults.aiConfidence.toFixed(1)}%. This is not a calibrated probability and is not a diagnosis.`,
       `Recommended next step: ${scanResults.recommendation}`,
     ];
   }, [scanResults, reportType, severityScore]);

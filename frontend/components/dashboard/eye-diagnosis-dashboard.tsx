@@ -170,7 +170,7 @@ export function EyeDiagnosisDashboard() {
                     {MOCK_RESULTS.diagnosis} · {MOCK_RESULTS.etdrsLevel}
                   </p>
                   <p className="text-xs text-muted-foreground">
-                    AI Confidence: {MOCK_RESULTS.aiConfidence}% · Model: {MOCK_RESULTS.modelVersion}
+                    Ordinal proximity (uncalibrated): {MOCK_RESULTS.aiConfidence}% · Model: {MOCK_RESULTS.modelVersion}
                   </p>
                 </div>
               </div>

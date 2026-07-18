@@ -8,7 +8,7 @@ export function HomePage({ onNavigate }: { onNavigate: (view: string) => void })
   const [autoScrollEnabled, setAutoScrollEnabled] = useState(true);
   const overviewVideoUrl =
     process.env.NEXT_PUBLIC_APP_OVERVIEW_YT ??
-    'https://www.youtube.com/embed/Sj0TPbHA6Vk';
+    'https://www.youtube.com/embed/opcj0hZPnxU';
 
   const galleryImages = [
     { filename: 'fundus-camera.jpg', description: 'Fundus Camera Device' },
@@ -103,7 +103,7 @@ export function HomePage({ onNavigate }: { onNavigate: (view: string) => void })
           <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
             <div className="bg-white rounded-lg p-8 border border-[#E8D9C8]">
               <h3 className="text-xl font-bold text-[#3B2416] mb-3">DR Staging</h3>
-              <p className="text-[#6E4B34] leading-relaxed text-justify">EfficientNet-B3 with fundus preprocessing (masking + CLAHE) estimates ETDRS severity and confidence for triage support.</p>
+              <p className="text-[#6E4B34] leading-relaxed text-justify">EfficientNet-B3 with fundus preprocessing (masking + CLAHE) estimates DR severity and provides an uncalibrated ordinal-score context for research review.</p>
             </div>
             <div className="bg-white rounded-lg p-8 border border-[#E8D9C8]">
               <h3 className="text-xl font-bold text-[#3B2416] mb-3">Segmentation</h3>
@@ -139,7 +139,7 @@ export function HomePage({ onNavigate }: { onNavigate: (view: string) => void })
                 <img src="/images/analysis-vision.svg" alt="Analysis" className="w-full h-full object-cover" />
               </div>
               <h4 className="text-xl font-bold text-[#3B2416] mb-3">Stage</h4>
-              <p className="text-sm text-[#6E4B34] text-justify">DR severity and confidence are estimated with ETDRS-level mapping.</p>
+              <p className="text-sm text-[#6E4B34] text-justify">DR severity is estimated with five-grade mapping; the displayed ordinal proximity is not a calibrated probability.</p>
             </div>
             <div className="flex flex-col items-center text-center">
               <div className="w-48 h-48 rounded-lg bg-[#F4EADD] mb-6 overflow-hidden border-2 border-[#3B2416]">
