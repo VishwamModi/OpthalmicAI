@@ -34,6 +34,12 @@ Before running:
 5. Review `tables/segmentation_pairing_audit.csv`. Only unambiguous image-mask pairs are evaluated.
 6. Download both `OphthalmicAI_publication_results.zip` and `OphthalmicAI_publication_results.xlsx`.
 
+Excel worksheets are limited to 1,048,576 rows. If any generated CSV exceeds
+that limit, the complete CSV remains in the ZIP while the workbook contains a
+100,000-row preview and an `oversized_csv_index` sheet. Segmentation ROC/PR
+point exports are also reduced to 10,000 evenly spaced plotting points while
+AUC and average precision are calculated from the complete sampled arrays.
+
 When `test.csv` contains labels, the notebook evaluates the full provided test set.
 Otherwise it tries `valid.csv`, then reproduces the 15% stratified split from
 `train_1.csv`. The original binary-disease 15% splits were used for model

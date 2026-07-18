@@ -237,6 +237,16 @@ def save_figure(name: str):
     plt.close()
 
 
+def downsample_curve_points(frame, max_rows=10000):
+    """Keep curve endpoints and evenly spaced intermediate points for export."""
+    if len(frame) <= max_rows:
+        return frame.reset_index(drop=True)
+    indices = np.unique(
+        np.linspace(0, len(frame) - 1, num=max_rows, dtype=np.int64)
+    )
+    return frame.iloc[indices].reset_index(drop=True)
+
+
 def load_state(model: torch.nn.Module, path: Path):
     checkpoint = torch.load(path, map_location="cpu", weights_only=False)
     state = checkpoint.get("state_dict", checkpoint) if isinstance(checkpoint, dict) else checkpoint
@@ -1177,12 +1187,32 @@ def evaluate_segmentation(biomarker):
     precision, recall, pr_thresholds = precision_recall_curve(pixel_truth, pixel_probability)
     pixel_auc = roc_auc_score(pixel_truth, pixel_probability)
     pixel_ap = average_precision_score(pixel_truth, pixel_probability)
-    pd.DataFrame({"fpr": fpr, "tpr": tpr, "threshold": roc_thresholds}).to_csv(
+    roc_points_full = pd.DataFrame({
+        "fpr": fpr, "tpr": tpr, "threshold": roc_thresholds
+    })
+    pr_points_full = pd.DataFrame({
+        "precision": precision[:-1], "recall": recall[:-1],
+        "threshold": pr_thresholds,
+    })
+    roc_points = downsample_curve_points(roc_points_full)
+    pr_points = downsample_curve_points(pr_points_full)
+    roc_points.to_csv(
         TABLES / f"seg_{biomarker.lower()}_pixel_roc_points.csv", index=False
     )
-    pd.DataFrame({"precision": precision[:-1], "recall": recall[:-1],
-                  "threshold": pr_thresholds}).to_csv(
+    pr_points.to_csv(
         TABLES / f"seg_{biomarker.lower()}_pixel_pr_points.csv", index=False
+    )
+    pd.DataFrame([{
+        "biomarker": biomarker,
+        "pixels_sampled_for_metrics": len(pixel_truth),
+        "roc_points_calculated": len(roc_points_full),
+        "roc_points_exported": len(roc_points),
+        "pr_points_calculated": len(pr_points_full),
+        "pr_points_exported": len(pr_points),
+        "pixel_auc": pixel_auc,
+        "pixel_average_precision": pixel_ap,
+    }]).to_csv(
+        TABLES / f"seg_{biomarker.lower()}_pixel_curve_metadata.csv", index=False
     )
 
     thresholds = np.arange(0.05, 0.96, 0.05)
@@ -1322,10 +1352,56 @@ pd.DataFrame(model_metadata_rows).to_csv(TABLES / "model_checkpoint_and_runtime_
 # ## Export one Excel workbook and ZIP attachment package
 
 # %%
-with pd.ExcelWriter(OUTPUT / "OphthalmicAI_publication_results.xlsx", engine="openpyxl") as writer:
+EXCEL_MAX_DATA_ROWS = 1_048_575  # Excel limit minus the header row.
+EXCEL_PREVIEW_ROWS = 100_000
+
+
+def unique_sheet_name(stem, used):
+    base = stem[:31]
+    candidate = base
+    suffix = 2
+    while candidate.lower() in used:
+        marker = f"_{suffix}"
+        candidate = base[:31 - len(marker)] + marker
+        suffix += 1
+    used.add(candidate.lower())
+    return candidate
+
+
+oversized_csv_rows = []
+with pd.ExcelWriter(
+    OUTPUT / "OphthalmicAI_publication_results.xlsx", engine="openpyxl"
+) as writer:
+    used_sheet_names = set()
     for csv_path in sorted(TABLES.glob("*.csv")):
-        sheet = csv_path.stem[:31]
-        pd.read_csv(csv_path).to_excel(writer, sheet_name=sheet, index=False)
+        # All tables in this package are written by pandas without multiline
+        # fields, so physical lines provide an inexpensive row count.
+        with open(csv_path, "r", encoding="utf-8", errors="replace") as handle:
+            data_rows = max(0, sum(1 for _ in handle) - 1)
+
+        sheet = unique_sheet_name(csv_path.stem, used_sheet_names)
+        if data_rows <= EXCEL_MAX_DATA_ROWS:
+            pd.read_csv(csv_path).to_excel(
+                writer, sheet_name=sheet, index=False
+            )
+            continue
+
+        preview = pd.read_csv(csv_path, nrows=EXCEL_PREVIEW_ROWS)
+        preview.to_excel(writer, sheet_name=sheet, index=False)
+        oversized_csv_rows.append({
+            "csv_file": csv_path.name,
+            "rows_in_full_csv": data_rows,
+            "rows_in_excel_preview": len(preview),
+            "excel_sheet": sheet,
+            "full_data_location": f"tables/{csv_path.name}",
+            "note": "Full CSV retained in the downloadable ZIP; Excel contains a preview.",
+        })
+
+    if oversized_csv_rows:
+        index_sheet = unique_sheet_name("oversized_csv_index", used_sheet_names)
+        pd.DataFrame(oversized_csv_rows).to_excel(
+            writer, sheet_name=index_sheet, index=False
+        )
 
 manifest_rows = []
 for path in sorted(OUTPUT.rglob("*")):
