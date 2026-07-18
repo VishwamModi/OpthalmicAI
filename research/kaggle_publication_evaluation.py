@@ -66,7 +66,9 @@ if torch.cuda.is_available():
     torch.cuda.manual_seed_all(SEED)
 
 DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-OUTPUT = Path("/kaggle/working/publication_results")
+OUTPUT = Path(os.environ.get(
+    "OPHTHALMICAI_OUTPUT_DIR", "/kaggle/working/publication_results"
+))
 FIGURES = OUTPUT / "figures"
 TABLES = OUTPUT / "tables"
 EXAMPLES = OUTPUT / "examples"
@@ -77,16 +79,120 @@ CLASS_NAMES = ["No DR", "Mild", "Moderate", "Severe", "Proliferative DR"]
 IMAGENET_MEAN = [0.485, 0.456, 0.406]
 IMAGENET_STD = [0.229, 0.224, 0.225]
 
-# -------------------------- EDIT THESE PATHS --------------------------
-DR_CSV = Path("/kaggle/input/aptos2019-blindness-detection/train.csv")
-DR_IMAGE_DIR = Path("/kaggle/input/aptos2019-blindness-detection/train_images")
-DR_MODEL = Path("/kaggle/input/YOUR-MODEL-DATASET/OphthalmicAI_Final_EffNetB3.pt")
+# ----------------------- YOUR KAGGLE INPUTS --------------------------
+# These helpers discover the inputs shown in your screenshots even when
+# Kaggle adds an owner prefix or repeats a directory (for example,
+# test_images/test_images). They print every selected path before evaluation.
+KAGGLE_INPUT = Path(os.environ.get("KAGGLE_INPUT_DIR", "/kaggle/input"))
+IMAGE_SUFFIXES = {".png", ".jpg", ".jpeg", ".tif", ".tiff", ".bmp"}
 
-EYE_DISEASE_DIR = Path("/kaggle/input/eye-diseases-classification/dataset")
-GLAUCOMA_MODEL = Path("/kaggle/input/YOUR-MODEL-DATASET/Glaucoma_EffNetB3.pt")
-CATARACT_MODEL = Path("/kaggle/input/YOUR-MODEL-DATASET/Cataract_EffNetB3.pt")
 
-SEGMENTATION_MODEL_DIR = Path("/kaggle/input/YOUR-MODEL-DATASET/segmentation")
+def find_named_file(name, required=True):
+    matches = sorted(KAGGLE_INPUT.rglob(name), key=lambda path: (len(path.parts), str(path)))
+    if matches:
+        return matches[0]
+    if required:
+        raise FileNotFoundError(f"Could not find {name!r} anywhere below {KAGGLE_INPUT}")
+    return None
+
+
+def find_directory_with_children(required_children):
+    required_children = {child.lower() for child in required_children}
+    candidates = []
+    for directory in KAGGLE_INPUT.rglob("*"):
+        if not directory.is_dir():
+            continue
+        try:
+            child_names = {child.name.lower() for child in directory.iterdir()}
+        except OSError:
+            continue
+        if required_children.issubset(child_names):
+            candidates.append(directory)
+    if not candidates:
+        raise FileNotFoundError(
+            f"No directory below {KAGGLE_INPUT} contains {sorted(required_children)}"
+        )
+    return sorted(candidates, key=lambda path: (len(path.parts), str(path)))[0]
+
+
+def image_files(directory):
+    return sorted(
+        path for path in directory.rglob("*")
+        if path.is_file() and path.suffix.lower() in IMAGE_SUFFIXES
+    )
+
+
+def resolve_image_directory(parent, directory_name):
+    candidates = [path for path in parent.rglob(directory_name) if path.is_dir()]
+    candidates.extend(
+        path for path in parent.rglob("*")
+        if path.is_dir() and path.name.lower() == directory_name.lower()
+    )
+    populated = [(len(image_files(path)), path) for path in set(candidates)]
+    populated = [(count, path) for count, path in populated if count]
+    if not populated:
+        raise FileNotFoundError(f"No images found in {directory_name!r} below {parent}")
+    return sorted(populated, key=lambda item: (-item[0], len(item[1].parts), str(item[1])))[0][1]
+
+
+def find_aptos_source():
+    """Prefer a labelled held-out test CSV, then validation, then train."""
+    csv_priority = [
+        ("test.csv", "external_test", "test_images"),
+        ("valid.csv", "provided_validation", "val_images"),
+        ("train_1.csv", "internal_validation", "train_images"),
+        ("train.csv", "internal_validation", "train_images"),
+    ]
+    for csv_name, label, image_folder in csv_priority:
+        for csv_path in sorted(KAGGLE_INPUT.rglob(csv_name)):
+            try:
+                columns = set(pd.read_csv(csv_path, nrows=2).columns)
+            except Exception:
+                continue
+            id_column = next(
+                (column for column in ("id_code", "image", "filename", "file_name")
+                 if column in columns), None
+            )
+            label_column = next(
+                (column for column in ("diagnosis", "level", "label")
+                 if column in columns), None
+            )
+            if id_column is None or label_column is None:
+                continue
+            try:
+                directory = resolve_image_directory(csv_path.parent, image_folder)
+            except FileNotFoundError:
+                continue
+            return csv_path, directory, label, id_column, label_column
+    raise FileNotFoundError(
+        "No labelled APTOS CSV/image pair found. Expected test.csv, valid.csv, "
+        "or train_1.csv with an ID column and diagnosis/level labels."
+    )
+
+
+DR_CSV, DR_IMAGE_DIR, DR_EVALUATION_LABEL, DR_ID_COLUMN, DR_LABEL_COLUMN = find_aptos_source()
+DR_MODEL = find_named_file("OphthalmicAI_Final_EffNetB3.pt")
+RESIZED_DR_CSV = find_named_file("trainLabels.csv", required=False)
+
+EYE_DISEASE_DIR = find_directory_with_children(
+    {"normal", "cataract", "glaucoma", "diabetic_retinopathy"}
+)
+GLAUCOMA_MODEL = find_named_file("Glaucoma_EffNetB3.pt", required=False)
+CATARACT_MODEL = find_named_file("Cataract_EffNetB3.pt", required=False)
+
+LESION_TEST_DIR = find_directory_with_children({"image", "mask"})
+LESION_IMAGE_DIR = LESION_TEST_DIR / "image"
+LESION_MASK_DIR = LESION_TEST_DIR / "mask"
+SEGMENTATION_MODEL_FILES = {
+    biomarker: find_named_file(filename)
+    for biomarker, filename in {
+        "OD": "best_od_model_fp16.pth",
+        "EX": "best_ex_model_fp16.pth",
+        "SE": "best_se_model_fp16.pth",
+        "MA": "best_ma_model_fp16.pth",
+        "HE": "best_he_model_fp16.pth",
+    }.items()
+}
 
 # Optional evidence files. Leave as None when unavailable.
 # Training history columns: model, phase, epoch, train_loss, val_loss and any
@@ -97,19 +203,8 @@ DME_PREDICTIONS_CSV = None  # Path("/kaggle/input/YOUR-DME/dme_predictions.csv")
 # Optional DR metadata columns are evaluated when present.
 SUBGROUP_COLUMNS = ["sex", "age_group", "camera", "site"]
 
-# Each CSV must contain: image_path, mask_path. Paths may be absolute Kaggle
-# paths or relative to /kaggle/input. Create one CSV per biomarker.
-SEGMENTATION_MANIFESTS = {
-    "OD": Path("/kaggle/input/YOUR-MANIFESTS/od_test_manifest.csv"),
-    "EX": Path("/kaggle/input/YOUR-MANIFESTS/ex_test_manifest.csv"),
-    "SE": Path("/kaggle/input/YOUR-MANIFESTS/se_test_manifest.csv"),
-    "MA": Path("/kaggle/input/YOUR-MANIFESTS/ma_test_manifest.csv"),
-    "HE": Path("/kaggle/input/YOUR-MANIFESTS/he_test_manifest.csv"),
-}
-
-# `validation` reproduces the original APTOS 85/15 split. For the journal,
-# prefer `external_test` and point DR_CSV to a CSV with id_code + diagnosis.
-DR_EVALUATION_LABEL = "internal_validation"
+# If the selected source is train_1.csv, the original reproducible 85/15
+# internal-validation split is used. A labelled test.csv is evaluated whole.
 DR_TEST_SIZE = 0.15
 BATCH_SIZE = 32
 NUM_WORKERS = 2
@@ -118,6 +213,17 @@ N_BOOTSTRAP = 1000
 
 print("Device:", DEVICE)
 print("Outputs:", OUTPUT)
+print("APTOS CSV:", DR_CSV)
+print("APTOS images:", DR_IMAGE_DIR)
+print("DR evaluation set:", DR_EVALUATION_LABEL)
+print("Eye-disease classes:", EYE_DISEASE_DIR)
+print("Lesion images:", LESION_IMAGE_DIR)
+print("Lesion masks:", LESION_MASK_DIR)
+print("DR checkpoint:", DR_MODEL)
+print("Resized EyePACS labels:", RESIZED_DR_CSV or "not supplied")
+print("Glaucoma checkpoint:", GLAUCOMA_MODEL or "MISSING - evaluation will be skipped")
+print("Cataract checkpoint:", CATARACT_MODEL or "MISSING - evaluation will be skipped")
+print("Segmentation checkpoints:", SEGMENTATION_MODEL_FILES)
 model_metadata_rows = []
 
 # %% [markdown]
@@ -235,6 +341,113 @@ def decision_curve(y_true, probability, name):
     save_figure(f"{name}_decision_curve.png")
 
 # %% [markdown]
+# ## Dataset composition evidence
+#
+# These tables document the supplied APTOS splits, the four-class eye-disease
+# dataset, and the optional resized EyePACS/DR dataset. This is descriptive
+# evidence only; it is kept separate from model-performance evaluation.
+
+# %%
+dataset_inventory_rows = []
+distribution_rows = []
+
+for csv_name in ("train_1.csv", "valid.csv", "test.csv"):
+    for csv_path in sorted(KAGGLE_INPUT.rglob(csv_name)):
+        try:
+            frame = pd.read_csv(csv_path)
+        except Exception:
+            continue
+        label_column = next(
+            (column for column in ("diagnosis", "level", "label") if column in frame.columns),
+            None,
+        )
+        dataset_inventory_rows.append({
+            "dataset": "APTOS-2019",
+            "split": csv_path.stem,
+            "csv_path": str(csv_path),
+            "rows": len(frame),
+            "label_column": label_column,
+            "has_labels": label_column is not None,
+        })
+        if label_column is not None:
+            counts = pd.to_numeric(frame[label_column], errors="coerce").value_counts()
+            for grade in range(5):
+                distribution_rows.append({
+                    "dataset": f"APTOS {csv_path.stem}",
+                    "class": CLASS_NAMES[grade],
+                    "class_code": grade,
+                    "count": int(counts.get(grade, 0)),
+                })
+
+for class_directory in sorted(
+    path for path in EYE_DISEASE_DIR.iterdir() if path.is_dir()
+):
+    count = len(image_files(class_directory))
+    dataset_inventory_rows.append({
+        "dataset": "Eye Diseases Classification",
+        "split": class_directory.name,
+        "csv_path": None,
+        "rows": count,
+        "label_column": "folder",
+        "has_labels": True,
+    })
+    distribution_rows.append({
+        "dataset": "Eye Diseases Classification",
+        "class": class_directory.name,
+        "class_code": class_directory.name,
+        "count": count,
+    })
+
+if RESIZED_DR_CSV is not None:
+    resized_frame = pd.read_csv(RESIZED_DR_CSV)
+    resized_label = next(
+        (column for column in ("level", "diagnosis", "label") if column in resized_frame.columns),
+        None,
+    )
+    dataset_inventory_rows.append({
+        "dataset": "Diabetic Retinopathy (resized)",
+        "split": RESIZED_DR_CSV.stem,
+        "csv_path": str(RESIZED_DR_CSV),
+        "rows": len(resized_frame),
+        "label_column": resized_label,
+        "has_labels": resized_label is not None,
+    })
+    if resized_label is not None:
+        counts = pd.to_numeric(resized_frame[resized_label], errors="coerce").value_counts()
+        for grade in range(5):
+            distribution_rows.append({
+                "dataset": "Diabetic Retinopathy (resized)",
+                "class": CLASS_NAMES[grade],
+                "class_code": grade,
+                "count": int(counts.get(grade, 0)),
+            })
+
+dataset_inventory = pd.DataFrame(dataset_inventory_rows)
+dataset_distributions = pd.DataFrame(distribution_rows)
+dataset_inventory.to_csv(TABLES / "dataset_inventory.csv", index=False)
+dataset_distributions.to_csv(TABLES / "classification_dataset_distributions.csv", index=False)
+
+if len(dataset_distributions):
+    plot_datasets = list(dataset_distributions["dataset"].drop_duplicates())
+    fig, axes = plt.subplots(
+        len(plot_datasets), 1, figsize=(12, max(4, 3.8 * len(plot_datasets)))
+    )
+    axes = np.atleast_1d(axes)
+    for axis, dataset_name in zip(axes, plot_datasets):
+        part = dataset_distributions[dataset_distributions.dataset == dataset_name]
+        sns.barplot(data=part, x="class", y="count", color="#2563eb", ax=axis)
+        axis.set_title(f"{dataset_name} class distribution")
+        axis.set_xlabel("")
+        axis.tick_params(axis="x", rotation=20)
+        for patch in axis.patches:
+            axis.annotate(
+                f"{int(patch.get_height())}",
+                (patch.get_x() + patch.get_width() / 2, patch.get_height()),
+                ha="center", va="bottom", fontsize=8,
+            )
+    save_figure("all_supplied_dataset_distributions.png")
+
+# %% [markdown]
 # ## DR severity evaluation
 #
 # The DR checkpoint is an ordinal regression model with one scalar output.
@@ -248,6 +461,9 @@ class DRDataset(Dataset):
     def __init__(self, frame, image_dir):
         self.frame = frame.reset_index(drop=True)
         self.image_dir = Path(image_dir)
+        paths = image_files(self.image_dir)
+        self.path_by_name = {path.name.lower(): path for path in paths}
+        self.path_by_stem = {path.stem.lower(): path for path in paths}
         self.transform = transforms.Compose([
             transforms.ToTensor(),
             transforms.Normalize(IMAGENET_MEAN, IMAGENET_STD),
@@ -259,7 +475,13 @@ class DRDataset(Dataset):
     def __getitem__(self, index):
         row = self.frame.iloc[index]
         image_id = str(row["id_code"])
-        path = self.image_dir / (image_id if Path(image_id).suffix else image_id + ".png")
+        requested = Path(image_id)
+        path = (
+            self.path_by_name.get(requested.name.lower())
+            or self.path_by_stem.get(requested.stem.lower())
+        )
+        if path is None:
+            raise FileNotFoundError(f"No APTOS image matched ID {image_id!r} in {self.image_dir}")
         bgr = cv2.imread(str(path))
         if bgr is None:
             raise FileNotFoundError(path)
@@ -277,8 +499,11 @@ def dr_grade(scores):
 
 
 dr_frame = pd.read_csv(DR_CSV)
+dr_frame = dr_frame.rename(columns={DR_ID_COLUMN: "id_code", DR_LABEL_COLUMN: "diagnosis"})
 required = {"id_code", "diagnosis"}
 assert required.issubset(dr_frame.columns), f"DR CSV needs columns {required}"
+dr_frame["diagnosis"] = pd.to_numeric(dr_frame["diagnosis"], errors="raise").astype(int)
+assert dr_frame["diagnosis"].between(0, 4).all(), "DR labels must be integers from 0 to 4"
 
 if DR_EVALUATION_LABEL == "internal_validation":
     _, dr_eval = train_test_split(
@@ -671,16 +896,32 @@ def evaluate_binary_disease(disease, checkpoint):
     return summary
 
 
-glaucoma_summary = evaluate_binary_disease("Glaucoma", GLAUCOMA_MODEL)
-cataract_summary = evaluate_binary_disease("Cataract", CATARACT_MODEL)
+if GLAUCOMA_MODEL is not None and GLAUCOMA_MODEL.exists():
+    glaucoma_summary = evaluate_binary_disease("Glaucoma", GLAUCOMA_MODEL)
+else:
+    glaucoma_summary = None
+    print(
+        "SKIPPED GLAUCOMA: add Glaucoma_EffNetB3.pt to the Kaggle 'models' input "
+        "to generate its paper evidence."
+    )
+
+if CATARACT_MODEL is not None and CATARACT_MODEL.exists():
+    cataract_summary = evaluate_binary_disease("Cataract", CATARACT_MODEL)
+else:
+    cataract_summary = None
+    print(
+        "SKIPPED CATARACT: add Cataract_EffNetB3.pt to the Kaggle 'models' input "
+        "to generate its paper evidence."
+    )
 
 # %% [markdown]
 # ## Lesion-segmentation evaluation
 #
-# Manifests make image/mask pairing explicit and auditable. Never rely on
-# unsorted directory order. The outputs include per-image metrics, pooled
-# pixel ROC/PR curves, threshold sweeps, bootstrap intervals, and galleries
-# showing image, ground truth, prediction, and overlay.
+# The screenshot-provided `lesion_test/image` and `lesion_test/mask` folders
+# are paired by normalized case ID and lesion code. Pairing is exported and
+# audited; unsorted directory order is never used. The outputs include
+# per-image metrics, pooled pixel ROC/PR curves, threshold sweeps, bootstrap
+# intervals, and qualitative galleries.
 
 # %%
 SEGMENTATION_SPECS = {
@@ -690,6 +931,113 @@ SEGMENTATION_SPECS = {
     "MA": ("UnetPlusPlus", "efficientnet-b4", "best_ma_model_fp16.pth", 0.30),
     "HE": ("UnetPlusPlus", "efficientnet-b4", "best_he_model_fp16.pth", 0.30),
 }
+
+
+LESION_ALIASES = {
+    "OD": {"od", "opticdisc", "opticdisk", "disc", "disk"},
+    "EX": {"ex", "exudate", "exudates", "hardexudate", "hardexudates"},
+    "SE": {"se", "softexudate", "softexudates", "cottonwool", "cottonwoolspot"},
+    "MA": {"ma", "microaneurysm", "microaneurysms"},
+    "HE": {"he", "hemorrhage", "hemorrhages", "haemorrhage", "haemorrhages"},
+}
+PAIRING_STOP_WORDS = {
+    "mask", "masks", "label", "labels", "gt", "groundtruth", "manual",
+    "segmentation", "seg", "annotation", "annotations",
+}
+
+
+def text_tokens(value):
+    import re
+    return [token for token in re.split(r"[^a-z0-9]+", str(value).lower()) if token]
+
+
+def infer_biomarker(mask_path):
+    relative = mask_path.relative_to(LESION_MASK_DIR)
+    tokens = []
+    compact_parts = []
+    for part in relative.parts:
+        tokens.extend(text_tokens(Path(part).stem))
+        compact_parts.append("".join(text_tokens(Path(part).stem)))
+    matches = []
+    for biomarker, aliases in LESION_ALIASES.items():
+        matched = any(alias in tokens for alias in aliases)
+        matched = matched or any(
+            len(alias) > 2 and alias in compact
+            for alias in aliases for compact in compact_parts
+        )
+        if matched:
+            matches.append(biomarker)
+    return matches[0] if len(matches) == 1 else None
+
+
+def normalized_case_id(path):
+    all_aliases = set().union(*LESION_ALIASES.values())
+    tokens = [
+        token for token in text_tokens(Path(path).stem)
+        if token not in PAIRING_STOP_WORDS and token not in all_aliases
+    ]
+    return "".join(tokens)
+
+
+def build_segmentation_manifests():
+    images = image_files(LESION_IMAGE_DIR)
+    masks = image_files(LESION_MASK_DIR)
+    if not images:
+        raise FileNotFoundError(f"No lesion-test images found below {LESION_IMAGE_DIR}")
+    if not masks:
+        raise FileNotFoundError(f"No lesion masks found below {LESION_MASK_DIR}")
+
+    image_index = {}
+    for image_path in images:
+        keys = {normalized_case_id(image_path), image_path.stem.lower()}
+        for key in keys:
+            if key:
+                image_index.setdefault(key, []).append(image_path)
+
+    audit_rows = []
+    for mask_path in masks:
+        biomarker = infer_biomarker(mask_path)
+        key = normalized_case_id(mask_path)
+        candidates = list(dict.fromkeys(image_index.get(key, [])))
+        status = (
+            "matched" if biomarker is not None and len(candidates) == 1
+            else "unidentified_biomarker" if biomarker is None
+            else "image_not_found" if len(candidates) == 0
+            else "ambiguous_image_match"
+        )
+        audit_rows.append({
+            "biomarker": biomarker,
+            "case_id": key,
+            "image_path": str(candidates[0]) if len(candidates) == 1 else None,
+            "mask_path": str(mask_path),
+            "status": status,
+            "candidate_count": len(candidates),
+        })
+
+    audit = pd.DataFrame(audit_rows)
+    audit.to_csv(TABLES / "segmentation_pairing_audit.csv", index=False)
+    print("Segmentation pairing audit:")
+    print(audit.status.value_counts(dropna=False).to_string())
+
+    manifests = {}
+    for biomarker in SEGMENTATION_SPECS:
+        frame = audit[
+            (audit.biomarker == biomarker) & (audit.status == "matched")
+        ][["image_path", "mask_path"]].drop_duplicates()
+        manifest = TABLES / f"seg_{biomarker.lower()}_auto_manifest.csv"
+        frame.to_csv(manifest, index=False)
+        manifests[biomarker] = manifest
+        print(f"{biomarker}: {len(frame)} audited image-mask pairs")
+
+    if not any(pd.read_csv(path).shape[0] for path in manifests.values()):
+        raise RuntimeError(
+            "No masks could be paired safely. Open segmentation_pairing_audit.csv. "
+            "Mask folders or filenames must identify OD, EX, SE, MA, or HE."
+        )
+    return manifests
+
+
+SEGMENTATION_MANIFESTS = build_segmentation_manifests()
 
 
 def resolve_kaggle_path(value):
@@ -768,7 +1116,8 @@ def evaluate_segmentation(biomarker):
         encoder_name=encoder, encoder_weights=None, in_channels=3, classes=1,
         decoder_attention_type="scse"
     )
-    model = load_state(model, SEGMENTATION_MODEL_DIR / weight_name).to(DEVICE).eval()
+    checkpoint = SEGMENTATION_MODEL_FILES[biomarker]
+    model = load_state(model, checkpoint).to(DEVICE).eval()
     records, example_data = [], []
     sampled_truth, sampled_probability = [], []
     rng = np.random.default_rng(SEED)
@@ -878,16 +1227,16 @@ def evaluate_segmentation(biomarker):
             axis.set_title(title)
             axis.axis("off")
     save_figure(f"seg_{biomarker.lower()}_qualitative_gallery.png")
-    checkpoint_metadata(f"Segmentation {biomarker}", model, SEGMENTATION_MODEL_DIR / weight_name)
+    checkpoint_metadata(f"Segmentation {biomarker}", model, checkpoint)
     return summary
 
 
 segmentation_summaries = []
 for biomarker, manifest in SEGMENTATION_MANIFESTS.items():
-    if manifest.exists():
+    if manifest.exists() and len(pd.read_csv(manifest)):
         segmentation_summaries.append(evaluate_segmentation(biomarker))
     else:
-        print(f"SKIPPED {biomarker}: add manifest at {manifest}")
+        print(f"SKIPPED {biomarker}: no safely paired masks were found in {manifest}")
 
 if segmentation_summaries:
     pd.concat(segmentation_summaries, ignore_index=True).to_csv(

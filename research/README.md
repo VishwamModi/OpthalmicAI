@@ -17,12 +17,26 @@
 - a generated, metric-backed results-section evidence index;
 - a consolidated Excel workbook and downloadable ZIP attachment package.
 
+The notebook is configured for these Kaggle inputs:
+
+- `Diabetic Retinopathy Lesion Segmentation/lesion_test/image` and `mask`;
+- `eye_diseases_classification/dataset/{normal,cataract,glaucoma,diabetic_retinopathy}`;
+- `models/OphthalmicAI_Final_EffNetB3.pt` and the five `best_*_model_fp16.pth` files;
+- `APTOS-2019 dataset/{test_images,train_images,val_images}` with `test.csv`, `train_1.csv`, and `valid.csv`;
+- the optional `Diabetic Retinopathy (resized)` dataset for dataset-description evidence.
+
 Before running:
 
-1. Add the APTOS, Eye Diseases Classification, segmentation-test datasets, and model checkpoints as Kaggle inputs.
-2. Edit the path block near the top.
-3. Provide one segmentation manifest CSV per biomarker with `image_path` and `mask_path`.
-4. Use an untouched test set where possible. The original 85/15 and 15% binary splits were used for model selection and should be described as internal validation.
-5. Download both `OphthalmicAI_publication_results.zip` and `OphthalmicAI_publication_results.xlsx`.
+1. Add those datasets and checkpoints as Kaggle inputs.
+2. Also add `Glaucoma_EffNetB3.pt` and `Cataract_EffNetB3.pt` to the `models` input if their paper results are required. The notebook skips them honestly when absent.
+3. Select a T4 GPU and enable Internet for the initial package-install cell.
+4. Run all cells. Paths, repeated Kaggle directories, APTOS CSV columns, and lesion image-mask manifests are discovered automatically.
+5. Review `tables/segmentation_pairing_audit.csv`. Only unambiguous image-mask pairs are evaluated.
+6. Download both `OphthalmicAI_publication_results.zip` and `OphthalmicAI_publication_results.xlsx`.
+
+When `test.csv` contains labels, the notebook evaluates the full provided test set.
+Otherwise it tries `valid.csv`, then reproduces the 15% stratified split from
+`train_1.csv`. The original binary-disease 15% splits were used for model
+selection and must be described as internal validation.
 
 Do not claim a five-class DR ROC from the scalar regression checkpoint. The valid ROC analyses for this model are threshold-based clinical endpoints.
