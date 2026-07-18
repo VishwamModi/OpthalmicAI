@@ -1,125 +1,102 @@
 # OphthalmicAI deployment from basics
 
-## Intended public scope
+## Public demonstration scope
 
-The public application serves diabetic-retinopathy severity grading, five DR-related
-segmentation outputs, and Grad-CAM. Glaucoma and cataract remain research-only
-transfer-learning experiments and are not exposed by the API or interface.
+The free public demonstration contains:
 
-## Recommended free demonstration architecture
+- diabetic-retinopathy severity grades 0–4;
+- the raw ordinal model score;
+- clearly labelled uncalibrated ordinal proximity;
+- a Grad-CAM visualization;
+- the updated project video.
 
-- Backend: Hugging Face Docker Space, CPU Basic.
-- Frontend: Vercel Hobby project connected to the `frontend` directory.
-- Source control: GitHub.
+Glaucoma, cataract, segmentation, comparative models, user accounts, and LLM
+reports remain research or full local-application features. They are not part
+of the free public Space.
 
-The backend production image has already been built locally and passed
-`/api/health` with the real DR and segmentation checkpoints loaded.
+## Recommended free deployment
 
-## 1. Publish the repository
+Use a **public Hugging Face Gradio Space on CPU Basic**. It runs Python and
+PyTorch without the Docker SDK. A Static Space can host only HTML/JavaScript
+and cannot execute the local EfficientNet checkpoint.
 
-1. Install GitHub CLI from <https://cli.github.com/>.
-2. Open a new terminal and run `gh auth login`.
-3. Select GitHub.com, HTTPS, and browser authentication.
-4. Confirm with `gh auth status`.
-5. Publish the prepared branch and merge its pull request after reviewing the files.
+The ready-to-upload package is in `huggingface_space/`.
 
-Large `.pt` and `.pth` checkpoints require Git LFS:
+## 1. Keep GitHub on main
 
-```text
+Run Git commands inside the repository, not from `C:\Users\VISHWAM`:
+
+```powershell
+cd "C:\Users\VISHWAM\OneDrive\Desktop\Research\MAJOR_PROJECT\OpthalmicAI-publish"
 git lfs install
 git lfs pull
+git status
 ```
 
-## 2. Create the Hugging Face backend
+The deployment and publication files are maintained directly on `main`.
 
-1. Create or sign in to a Hugging Face account.
-2. Open Spaces and choose **Create new Space**.
-3. Name it `ophthalmicai-backend`.
-4. Choose **Docker** as the SDK and **CPU Basic** as hardware.
-5. Choose Public visibility for a freely accessible demonstration.
-6. Clone the new Space repository.
-7. Copy the following project items into the Space repository:
-   - `Dockerfile`
-   - `.dockerignore`
-   - `backend/`
-   - `Models/OphthalmicAI_Final_EffNetB3.pt`
-   - `Models/segmentation/`
-8. Replace the Space repository's README with `HUGGINGFACE_SPACE_README.md`.
-9. Commit and push. Hugging Face will build and start the container automatically.
-10. Open:
+## 2. Create the free Hugging Face Space
+
+1. Sign in to Hugging Face.
+2. Open **Spaces → Create new Space**.
+3. Name it `ophthalmicai-dr-severity`.
+4. Select **Gradio** as the SDK.
+5. Select **Public** visibility.
+6. Keep the free **CPU Basic** hardware.
+7. Create the Space.
+
+Do not select Static: it cannot run PyTorch inference. Docker is not required.
+
+## 3. Upload the Space files
+
+Upload these files to the root of the new Space:
+
+- `huggingface_space/README.md`
+- `huggingface_space/app.py`
+- `huggingface_space/requirements.txt`
+- `Models/OphthalmicAI_Final_EffNetB3.pt`
+
+The final Space repository must look like:
 
 ```text
-https://YOUR-HF-USERNAME-ophthalmicai-backend.hf.space/api/health
+README.md
+app.py
+requirements.txt
+OphthalmicAI_Final_EffNetB3.pt
 ```
 
-The response must contain:
+Hugging Face will install the dependencies and start the app. The first build
+and first CPU prediction may take several minutes.
 
-```json
-{
-  "status": "ok",
-  "gradcam_available": true
-}
-```
+## 4. Test before sharing
 
-Optional Space secrets:
+1. The Space status becomes **Running**.
+2. Upload a valid retinal fundus image.
+3. Confirm a DR grade from 0 to 4 is shown.
+4. Confirm the raw ordinal score is shown.
+5. Confirm the confidence-like value says **uncalibrated**.
+6. Confirm the Grad-CAM image appears.
+7. Confirm the research-only disclaimer is visible.
+8. Test a non-retinal image and document that this is an unsupported input.
+9. Do not upload identifiable patient information.
 
-- `GEMINI_API_KEY`: enables the Gemini-backed assistant.
-- `DATABASE_URL`: external PostgreSQL connection if persistent accounts are needed.
-
-Without an external database, SQLite data can disappear when free infrastructure
-restarts or sleeps. Do not treat the demo database as permanent storage.
-
-## 3. Create the Vercel frontend
-
-1. Create or sign in to Vercel using GitHub.
-2. Select **Add New -> Project**.
-3. Import `VishwamModi/OpthalmicAI`.
-4. Set **Root Directory** to `frontend`.
-5. Confirm framework preset **Next.js**.
-6. Add these environment variables for Production, Preview, and Development:
+The public URL will be similar to:
 
 ```text
-NEXT_PUBLIC_API_BASE_URL=https://YOUR-HF-USERNAME-ophthalmicai-backend.hf.space
-NEXT_PUBLIC_APP_OVERVIEW_YT=https://www.youtube.com/embed/opcj0hZPnxU
+https://YOUR-USERNAME-ophthalmicai-dr-severity.hf.space
 ```
 
-7. Deploy.
-8. Open the generated `vercel.app` URL.
+## 5. Static-only fallback
 
-## 4. End-to-end acceptance test
+If the account interface genuinely offers only Static Spaces, deploy only a
+landing page and the YouTube video there. Static hosting cannot perform DR
+inference with the `.pt` model. Do not present a random or browser-mocked
+prediction as AI output.
 
-Complete every check before sharing the URL:
+## Research-integrity rules
 
-1. Landing page loads and the updated YouTube video plays.
-2. Signup and login succeed.
-3. A valid retinal fundus image uploads.
-4. DR grade and raw analysis return without an API error.
-5. Grad-CAM is visible.
-6. OD, EX, SE, MA, and HE segmentation panels load.
-7. Report export completes.
-8. Invalid file types and oversized files show a useful error.
-9. Browser developer tools show no mixed-content or CORS errors.
-10. `/api/health` still returns `status: ok` after analysis.
-
-## 5. Alternative one-provider Render deployment
-
-The root `render.yaml` defines a Docker backend and Node frontend. In Render:
-
-1. Choose **New -> Blueprint**.
-2. Connect the GitHub repository.
-3. Select the branch containing `render.yaml`.
-4. Set `NEXT_PUBLIC_API_BASE_URL` to the backend `onrender.com` URL after the
-   backend service is created.
-5. Deploy and repeat the acceptance tests.
-
-Render free web services sleep after inactivity and use an ephemeral filesystem.
-The ML backend can also exceed small-instance memory limits. For this project,
-Hugging Face CPU Basic is the preferred free demonstration backend.
-
-## 6. Research-integrity checks before demonstration
-
-- Do not describe synthetic application confidence values as calibrated probability.
-- Do not use the synthetic DCA fallback in the paper.
-- Keep the interface and README explicit that glaucoma and cataract are not deployed.
-- Add a visible research-only / not-for-clinical-use statement.
-- Do not store identifiable patient data on free public infrastructure.
+- The ordinal proximity is not a calibrated probability.
+- The Space is a research demonstration, not a medical device.
+- Do not include synthetic decision-curve or confidence values in the paper.
+- Glaucoma, cataract, segmentation, and competing-model experiments belong in
+  the journal evidence package, not the current public application.

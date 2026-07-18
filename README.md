@@ -100,32 +100,23 @@ git commit -m "Update app assets, models, and docs"
 git push origin main
 ```
 
-If your branch is not `main`, replace it with your branch name.
+## Free Hugging Face deployment
 
-## Deploy on Render
+The free deployment is a DR-only Gradio Space and does not require Docker.
 
-Recommended as **two Render services**:
+- Ready-to-upload Space package: [huggingface_space/](huggingface_space)
+- Basic instructions: [DEPLOYMENT_FROM_BASICS.md](DEPLOYMENT_FROM_BASICS.md)
+- Required checkpoint: `Models/OphthalmicAI_Final_EffNetB3.pt`
 
-### 1) Backend web service
-- **Root Directory:** repo root (`.`)
-- **Build Command:** `pip install -r backend/requirements.txt`
-- **Start Command:** `uvicorn backend.main:app --host 0.0.0.0 --port $PORT`
-
-### 2) Frontend web service
-- **Root Directory:** `frontend`
-- **Build Command:** `npm install && npm run build`
-- **Start Command:** `npm run start -- -p $PORT`
-- **Environment Variables:**
-	- `NEXT_PUBLIC_API_BASE_URL=https://<your-backend-service>.onrender.com`
-	- `NEXT_PUBLIC_APP_OVERVIEW_YT=https://www.youtube.com/embed/opcj0hZPnxU`
-
-The included [render.yaml](render.yaml) can be used as a starting point.
+Static hosting cannot execute the PyTorch model. Choose the Gradio SDK and
+free CPU Basic hardware for the interactive inference demonstration.
 
 ## Troubleshooting
 
 - If the video does not appear, confirm `NEXT_PUBLIC_APP_OVERVIEW_YT` points to a valid YouTube embed URL.
-- If the frontend cannot reach the backend, verify `NEXT_PUBLIC_API_BASE_URL` points to the deployed backend URL.
-- If models fail to load on Render, make sure [Models/](Models) was pushed correctly through Git LFS and is present at runtime.
+- If the Space says the checkpoint is missing, upload
+  `OphthalmicAI_Final_EffNetB3.pt` to the Space repository root.
+- If the build fails, verify the Space SDK is Gradio rather than Static.
 - If browser cache looks stale after deploy, do a hard refresh.
 
 ## Quick checklist before pushing
@@ -133,5 +124,5 @@ The included [render.yaml](render.yaml) can be used as a starting point.
 - [ ] `NEXT_PUBLIC_APP_OVERVIEW_YT` is set to your YouTube embed URL
 - [ ] `Models/` is present in the repo
 - [ ] `README.md` is updated
-- [ ] `render.yaml` matches your deployment setup
+- [ ] the four files in `huggingface_space/` are ready for the Space
 - [ ] the Git remote points to `VishwamModi/OpthalmicAI`

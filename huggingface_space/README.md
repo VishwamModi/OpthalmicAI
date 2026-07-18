@@ -12,7 +12,11 @@ suggested_hardware: cpu-basic
 # OphthalmicAI — Diabetic Retinopathy Severity
 
 Free CPU Gradio deployment for the final EfficientNet-B3 ordinal-regression
-checkpoint. Upload `app.py`, `requirements.txt`, and
-`OphthalmicAI_Final_EffNetB3.pt` with this file.
+checkpoint. This public demonstration reports DR grades 0–4 and a Grad-CAM
+visualization.
 
-This is research software and is not a medical diagnosis.
+Before the Space can start, add this file to the root of the Space repository:
+
+`OphthalmicAI_Final_EffNetB3.pt`
+
+The output is research software and is not a medical diagnosis.
