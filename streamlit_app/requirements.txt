@@ -1,4 +1,4 @@
-gradio>=5.0,<7
+streamlit>=1.40,<2
 numpy>=1.26,<3
 opencv-python-headless>=4.10,<5
 Pillow>=10,<13

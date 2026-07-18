@@ -3,15 +3,16 @@ from __future__ import annotations
 from pathlib import Path
 
 import cv2
-import gradio as gr
 import numpy as np
+import streamlit as st
 import timm
 import torch
 from PIL import Image
 from torchvision import transforms
 
 
-MODEL_PATH = Path(__file__).resolve().parent / "OphthalmicAI_Final_EffNetB3.pt"
+PROJECT_ROOT = Path(__file__).resolve().parents[1]
+MODEL_PATH = PROJECT_ROOT / "Models" / "OphthalmicAI_Final_EffNetB3.pt"
 DEVICE = torch.device("cpu")
 CLASS_NAMES = [
     "No DR",
@@ -31,14 +32,16 @@ NORMALIZE = transforms.Normalize(
     mean=[0.485, 0.456, 0.406],
     std=[0.229, 0.224, 0.225],
 )
+torch.set_num_threads(2)
 
 
-def load_checkpoint(model: torch.nn.Module, path: Path) -> torch.nn.Module:
-    if not path.exists():
-        raise FileNotFoundError(
-            f"Missing {path.name}. Upload the final DR checkpoint to the Space root."
-        )
-    saved = torch.load(path, map_location="cpu", weights_only=False)
+@st.cache_resource(show_spinner="Loading the EfficientNet-B3 checkpoint…")
+def load_model() -> torch.nn.Module:
+    if not MODEL_PATH.exists():
+        raise FileNotFoundError(f"Missing model checkpoint: {MODEL_PATH}")
+
+    model = timm.create_model("efficientnet_b3", pretrained=False, num_classes=1)
+    saved = torch.load(MODEL_PATH, map_location="cpu", weights_only=False)
     state = saved.get("state_dict", saved) if isinstance(saved, dict) else saved
     cleaned = {}
     for key, value in state.items():
@@ -51,13 +54,7 @@ def load_checkpoint(model: torch.nn.Module, path: Path) -> torch.nn.Module:
     return model.to(DEVICE).eval()
 
 
-MODEL = load_checkpoint(
-    timm.create_model("efficientnet_b3", pretrained=False, num_classes=1),
-    MODEL_PATH,
-)
-
-
-def prepare_image(image: Image.Image) -> tuple[torch.Tensor, np.ndarray, np.ndarray]:
+def prepare_image(image: Image.Image) -> tuple[torch.Tensor, np.ndarray]:
     rgb_original = np.asarray(image.convert("RGB"))
     bgr = cv2.cvtColor(rgb_original, cv2.COLOR_RGB2BGR)
     bgr = cv2.resize(bgr, (300, 300), interpolation=cv2.INTER_AREA)
@@ -70,14 +67,14 @@ def prepare_image(image: Image.Image) -> tuple[torch.Tensor, np.ndarray, np.ndar
     processed_rgb = cv2.merge([green, green, green])
     tensor = torch.from_numpy(processed_rgb.transpose(2, 0, 1)).float() / 255.0
     tensor = NORMALIZE(tensor).unsqueeze(0).to(DEVICE)
-    return tensor, rgb_original, processed_rgb
+    return tensor, processed_rgb
 
 
 def ordinal_grade(score: float) -> int:
     return int(np.digitize(score, [0.5, 1.5, 2.5, 3.5]).item())
 
 
-def gradcam(model: torch.nn.Module, tensor: torch.Tensor) -> np.ndarray:
+def calculate_gradcam(model: torch.nn.Module, tensor: torch.Tensor) -> np.ndarray:
     activations = None
     gradients = None
 
@@ -97,7 +94,7 @@ def gradcam(model: torch.nn.Module, tensor: torch.Tensor) -> np.ndarray:
         output = model(tensor).view(-1)[0]
         output.backward()
         if activations is None or gradients is None:
-            raise RuntimeError("Grad-CAM hooks did not capture the feature maps.")
+            raise RuntimeError("Grad-CAM did not capture feature maps.")
         weights = gradients.mean(dim=(2, 3), keepdim=True)
         heatmap = torch.relu((weights * activations).sum(dim=1))[0]
         heatmap -= heatmap.min()
@@ -113,16 +110,15 @@ def gradcam(model: torch.nn.Module, tensor: torch.Tensor) -> np.ndarray:
         handle.remove()
 
 
-def analyze(image: Image.Image | None):
-    if image is None:
-        raise gr.Error("Upload a retinal fundus image first.")
-
-    tensor, _original, processed = prepare_image(image)
-    heatmap = gradcam(MODEL, tensor)
-    with torch.no_grad():
-        raw_score = float(MODEL(tensor).view(-1)[0].item())
+def analyze(image: Image.Image) -> tuple[float, int, float, np.ndarray]:
+    model = load_model()
+    tensor, processed = prepare_image(image)
+    heatmap = calculate_gradcam(model, tensor)
+    with torch.inference_mode():
+        raw_score = float(model(tensor).view(-1)[0].item())
 
     grade = ordinal_grade(raw_score)
+    proximity = max(0.0, 1.0 - abs(np.clip(raw_score, 0, 4) - grade)) * 100
     color_heatmap = cv2.applyColorMap(
         np.uint8(np.clip(heatmap, 0, 1) * 255),
         cv2.COLORMAP_JET,
@@ -131,38 +127,50 @@ def analyze(image: Image.Image | None):
     overlay = np.uint8(
         np.clip(0.58 * processed.astype(np.float32) + 0.42 * color_heatmap, 0, 255)
     )
-
-    proximity = max(0.0, 1.0 - abs(np.clip(raw_score, 0, 4) - grade)) * 100
-    result = (
-        f"## {CLASS_NAMES[grade]}\n\n"
-        f"- **DR grade:** {grade}/4\n"
-        f"- **Raw ordinal score:** {raw_score:.3f}\n"
-        f"- **Ordinal proximity:** {proximity:.1f}% *(uncalibrated; not a probability)*\n"
-        f"- **Suggested next step:** {RECOMMENDATIONS[grade]}\n\n"
-        "This output is for research and educational use and must not replace "
-        "evaluation by a qualified clinician."
-    )
-    return result, overlay
+    return raw_score, grade, proximity, overlay
 
 
-with gr.Blocks(title="OphthalmicAI DR Severity") as demo:
-    gr.Markdown(
-        "# OphthalmicAI — DR Severity\n"
-        "Upload a retinal fundus image to obtain an EfficientNet-B3 ordinal "
-        "DR grade and Grad-CAM visualization.\n\n"
-        "[Watch the updated project walkthrough](https://youtu.be/opcj0hZPnxU)"
-    )
-    with gr.Row():
-        image_input = gr.Image(type="pil", label="Fundus image")
-        gradcam_output = gr.Image(type="numpy", label="Grad-CAM")
-    result_output = gr.Markdown()
-    analyze_button = gr.Button("Analyze image", variant="primary")
-    analyze_button.click(
-        analyze,
-        inputs=image_input,
-        outputs=[result_output, gradcam_output],
-    )
+st.set_page_config(
+    page_title="OphthalmicAI DR Severity",
+    page_icon="👁️",
+    layout="wide",
+)
+st.title("OphthalmicAI — Diabetic Retinopathy Severity")
+st.write(
+    "Upload a retinal fundus image for an EfficientNet-B3 ordinal DR grade "
+    "and Grad-CAM visualization."
+)
+st.video("https://youtu.be/opcj0hZPnxU")
 
+uploaded = st.file_uploader(
+    "Fundus image",
+    type=["png", "jpg", "jpeg"],
+    help="Use de-identified retinal fundus images only.",
+)
 
-if __name__ == "__main__":
-    demo.launch()
+if uploaded is not None:
+    input_image = Image.open(uploaded).convert("RGB")
+    left, right = st.columns(2)
+    with left:
+        st.image(input_image, caption="Uploaded fundus image", use_container_width=True)
+
+    if st.button("Analyze image", type="primary", use_container_width=True):
+        try:
+            with st.spinner("Running CPU inference and Grad-CAM…"):
+                raw_score, grade, proximity, overlay = analyze(input_image)
+            with right:
+                st.image(overlay, caption="Grad-CAM", use_container_width=True)
+            st.subheader(CLASS_NAMES[grade])
+            metric_a, metric_b, metric_c = st.columns(3)
+            metric_a.metric("DR grade", f"{grade}/4")
+            metric_b.metric("Raw ordinal score", f"{raw_score:.3f}")
+            metric_c.metric("Ordinal proximity", f"{proximity:.1f}%")
+            st.caption("Ordinal proximity is uncalibrated and is not a probability.")
+            st.info(RECOMMENDATIONS[grade])
+        except Exception as error:
+            st.error(f"Analysis failed: {error}")
+
+st.warning(
+    "Research and educational demonstration only. This software is not a "
+    "medical device and must not replace evaluation by a qualified clinician."
+)

@@ -100,23 +100,24 @@ git commit -m "Update app assets, models, and docs"
 git push origin main
 ```
 
-## Free Hugging Face deployment
+## Free Streamlit deployment
 
-The free deployment is a DR-only Gradio Space and does not require Docker.
+The recommended free deployment is a DR-only Streamlit Community Cloud app.
 
-- Ready-to-upload Space package: [huggingface_space/](huggingface_space)
-- Basic instructions: [DEPLOYMENT_FROM_BASICS.md](DEPLOYMENT_FROM_BASICS.md)
+- Entrypoint: [streamlit_app/app.py](streamlit_app/app.py)
+- Dependencies: [streamlit_app/requirements.txt](streamlit_app/requirements.txt)
+- Instructions: [DEPLOYMENT_FROM_BASICS.md](DEPLOYMENT_FROM_BASICS.md)
 - Required checkpoint: `Models/OphthalmicAI_Final_EffNetB3.pt`
 
-Static hosting cannot execute the PyTorch model. Choose the Gradio SDK and
-free CPU Basic hardware for the interactive inference demonstration.
+Deploy from `main` with main file path `streamlit_app/app.py`.
 
 ## Troubleshooting
 
 - If the video does not appear, confirm `NEXT_PUBLIC_APP_OVERVIEW_YT` points to a valid YouTube embed URL.
-- If the Space says the checkpoint is missing, upload
-  `OphthalmicAI_Final_EffNetB3.pt` to the Space repository root.
-- If the build fails, verify the Space SDK is Gradio rather than Static.
+- If the model is missing, confirm Git LFS completed and
+  `Models/OphthalmicAI_Final_EffNetB3.pt` exists in GitHub.
+- If Streamlit reports a resource limit, reboot the app and confirm only the
+  DR model is being loaded.
 - If browser cache looks stale after deploy, do a hard refresh.
 
 ## Quick checklist before pushing
@@ -124,5 +125,5 @@ free CPU Basic hardware for the interactive inference demonstration.
 - [ ] `NEXT_PUBLIC_APP_OVERVIEW_YT` is set to your YouTube embed URL
 - [ ] `Models/` is present in the repo
 - [ ] `README.md` is updated
-- [ ] the four files in `huggingface_space/` are ready for the Space
+- [ ] `streamlit_app/app.py` and its requirements are present
 - [ ] the Git remote points to `VishwamModi/OpthalmicAI`

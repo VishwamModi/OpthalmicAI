@@ -1,102 +1,79 @@
-# OphthalmicAI deployment from basics
+# OphthalmicAI free deployment
 
-## Public demonstration scope
+## Recommended provider: Streamlit Community Cloud
 
-The free public demonstration contains:
+Streamlit Community Cloud connects directly to GitHub and hosts public Python
+applications for free. The deployment is intentionally limited to:
 
 - diabetic-retinopathy severity grades 0–4;
-- the raw ordinal model score;
-- clearly labelled uncalibrated ordinal proximity;
-- a Grad-CAM visualization;
+- the raw ordinal score;
+- explicitly uncalibrated ordinal proximity;
+- Grad-CAM;
 - the updated project video.
 
-Glaucoma, cataract, segmentation, comparative models, user accounts, and LLM
-reports remain research or full local-application features. They are not part
-of the free public Space.
+The ready application is `streamlit_app/app.py`. It loads
+`Models/OphthalmicAI_Final_EffNetB3.pt` directly from this repository.
 
-## Recommended free deployment
+## Deployment steps
 
-Use a **public Hugging Face Gradio Space on CPU Basic**. It runs Python and
-PyTorch without the Docker SDK. A Static Space can host only HTML/JavaScript
-and cannot execute the local EfficientNet checkpoint.
+1. Confirm the repository is public:
+   `https://github.com/VishwamModi/OpthalmicAI`
+2. Open `https://share.streamlit.io`.
+3. Sign in using GitHub.
+4. Select **Create app**.
+5. Choose:
+   - Repository: `VishwamModi/OpthalmicAI`
+   - Branch: `main`
+   - Main file path: `streamlit_app/app.py`
+6. Open **Advanced settings** and select Python 3.11 if a version is requested.
+7. Deploy.
+8. Wait for PyTorch, timm and OpenCV to install. The first build and first CPU
+   prediction may take several minutes.
 
-The ready-to-upload package is in `huggingface_space/`.
-
-## 1. Keep GitHub on main
-
-Run Git commands inside the repository, not from `C:\Users\VISHWAM`:
-
-```powershell
-cd "C:\Users\VISHWAM\OneDrive\Desktop\Research\MAJOR_PROJECT\OpthalmicAI-publish"
-git lfs install
-git lfs pull
-git status
-```
-
-The deployment and publication files are maintained directly on `main`.
-
-## 2. Create the free Hugging Face Space
-
-1. Sign in to Hugging Face.
-2. Open **Spaces → Create new Space**.
-3. Name it `ophthalmicai-dr-severity`.
-4. Select **Gradio** as the SDK.
-5. Select **Public** visibility.
-6. Keep the free **CPU Basic** hardware.
-7. Create the Space.
-
-Do not select Static: it cannot run PyTorch inference. Docker is not required.
-
-## 3. Upload the Space files
-
-Upload these files to the root of the new Space:
-
-- `huggingface_space/README.md`
-- `huggingface_space/app.py`
-- `huggingface_space/requirements.txt`
-- `Models/OphthalmicAI_Final_EffNetB3.pt`
-
-The final Space repository must look like:
+The generated address will be similar to:
 
 ```text
-README.md
-app.py
-requirements.txt
-OphthalmicAI_Final_EffNetB3.pt
+https://ophthalmicai.streamlit.app
 ```
 
-Hugging Face will install the dependencies and start the app. The first build
-and first CPU prediction may take several minutes.
+## Acceptance test
 
-## 4. Test before sharing
+1. The updated video plays.
+2. PNG, JPG and JPEG fundus images can be selected.
+3. The app displays DR grade 0–4 and the raw ordinal score.
+4. Ordinal proximity is explicitly marked uncalibrated.
+5. Grad-CAM appears.
+6. The research-only disclaimer remains visible.
+7. No identifiable patient information is uploaded.
 
-1. The Space status becomes **Running**.
-2. Upload a valid retinal fundus image.
-3. Confirm a DR grade from 0 to 4 is shown.
-4. Confirm the raw ordinal score is shown.
-5. Confirm the confidence-like value says **uncalibrated**.
-6. Confirm the Grad-CAM image appears.
-7. Confirm the research-only disclaimer is visible.
-8. Test a non-retinal image and document that this is an unsupported input.
-9. Do not upload identifiable patient information.
+## Free alternatives
 
-The public URL will be similar to:
+### Modal Starter
 
-```text
-https://YOUR-USERNAME-ophthalmicai-dr-severity.hf.space
-```
+Modal currently includes monthly compute credits and can host web functions.
+It is a good fallback if Streamlit cannot fit the PyTorch runtime, but requires
+converting the application to Modal's deployment format.
 
-## 5. Static-only fallback
+### Google Cloud Run
 
-If the account interface genuinely offers only Static Spaces, deploy only a
-landing page and the YouTube video there. Static hosting cannot perform DR
-inference with the `.pt` model. Do not present a random or browser-mocked
-prediction as AI output.
+Cloud Run has a monthly free usage allowance and can run the existing Docker
+image with more memory. It normally requires a Google Cloud billing account,
+and charges are possible if the free allowance is exceeded.
+
+### Render
+
+Render offers free web services, but the free instance has approximately
+512 MB RAM. This is too small to recommend for the PyTorch application.
+
+### Static hosts
+
+GitHub Pages, Hugging Face Static Spaces, Netlify and Vercel static hosting can
+publish the landing page and video, but cannot execute the local `.pt` model.
 
 ## Research-integrity rules
 
-- The ordinal proximity is not a calibrated probability.
-- The Space is a research demonstration, not a medical device.
-- Do not include synthetic decision-curve or confidence values in the paper.
-- Glaucoma, cataract, segmentation, and competing-model experiments belong in
-  the journal evidence package, not the current public application.
+- The public application is DR-only.
+- Ordinal proximity is not a calibrated probability.
+- Do not expose glaucoma, cataract or competing-model experiments in the app.
+- Do not use synthetic confidence or decision-curve values.
+- The deployment is a research demonstration, not a medical device.
