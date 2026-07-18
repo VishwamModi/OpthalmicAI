@@ -14,6 +14,9 @@
 - checkpoint SHA-256 hashes, sizes, parameter counts, throughput, and per-image inference timing;
 - optional subgroup analysis when sex, age group, camera, or site metadata is available;
 - optional genuine training-history plots and DME evaluation when their source CSVs are supplied;
+- a paired four-class comparison of EfficientNet-B0, MobileNetV3-Large, and
+  EfficientNet-B3 on identical image IDs, including Cochran's Q, exact
+  McNemar tests with Holm correction, and bootstrap confidence intervals;
 - a generated, metric-backed results-section evidence index;
 - a consolidated Excel workbook and downloadable ZIP attachment package.
 
@@ -22,6 +25,8 @@ The notebook is configured for these Kaggle inputs:
 - `Diabetic Retinopathy Lesion Segmentation/lesion_test/image` and `mask`;
 - `eye_diseases_classification/dataset/{normal,cataract,glaucoma,diabetic_retinopathy}`;
 - `models/OphthalmicAI_Final_EffNetB3.pt` and the five `best_*_model_fp16.pth` files;
+- `models/EfficientNetB0.pth`, `MobileNetV3_1.pth`, and `EfficientNetB3.pt`
+  for the competing four-class model comparison;
 - `APTOS-2019 dataset/{test_images,train_images,val_images}` with `test.csv`, `train_1.csv`, and `valid.csv`;
 - the optional `Diabetic Retinopathy (resized)` dataset for dataset-description evidence.
 

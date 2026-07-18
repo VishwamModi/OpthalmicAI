@@ -10,7 +10,7 @@
 
 # %%
 # Kaggle setup. Internet must be enabled for pip installation.
-!pip -q install timm segmentation-models-pytorch grad-cam openpyxl
+!pip -q install timm segmentation-models-pytorch grad-cam openpyxl scipy
 
 # %%
 from __future__ import annotations
@@ -32,18 +32,21 @@ import seaborn as sns
 import timm
 import torch
 import torch.nn.functional as F
+import torch.nn as nn
 from PIL import Image
+from scipy.stats import binomtest, chi2
 from sklearn.calibration import calibration_curve
 from sklearn.metrics import (
     accuracy_score, average_precision_score, balanced_accuracy_score,
     brier_score_loss, classification_report, cohen_kappa_score,
     confusion_matrix, f1_score, jaccard_score, matthews_corrcoef,
-    mean_absolute_error, precision_recall_curve, precision_score,
+    log_loss, mean_absolute_error, precision_recall_curve, precision_score,
     recall_score, roc_auc_score, roc_curve
 )
 from sklearn.model_selection import train_test_split
+from sklearn.preprocessing import label_binarize
 from torch.utils.data import DataLoader, Dataset
-from torchvision import transforms
+from torchvision import models as tv_models, transforms
 from tqdm.auto import tqdm
 
 try:
@@ -76,6 +79,8 @@ for folder in (OUTPUT, FIGURES, TABLES, EXAMPLES):
     folder.mkdir(parents=True, exist_ok=True)
 
 CLASS_NAMES = ["No DR", "Mild", "Moderate", "Severe", "Proliferative DR"]
+EYE_CLASS_NAMES = ["Cataract", "Diabetic Retinopathy", "Glaucoma", "Normal"]
+EYE_CLASS_DIRECTORIES = ["cataract", "diabetic_retinopathy", "glaucoma", "normal"]
 IMAGENET_MEAN = [0.485, 0.456, 0.406]
 IMAGENET_STD = [0.229, 0.224, 0.225]
 
@@ -179,6 +184,11 @@ EYE_DISEASE_DIR = find_directory_with_children(
 )
 GLAUCOMA_MODEL = find_named_file("Glaucoma_EffNetB3.pt", required=False)
 CATARACT_MODEL = find_named_file("Cataract_EffNetB3.pt", required=False)
+MULTICLASS_MODEL_FILES = {
+    "EfficientNet-B0": find_named_file("EfficientNetB0.pth", required=False),
+    "MobileNetV3-Large": find_named_file("MobileNetV3_1.pth", required=False),
+    "EfficientNet-B3": find_named_file("EfficientNetB3.pt", required=False),
+}
 
 LESION_TEST_DIR = find_directory_with_children({"image", "mask"})
 LESION_IMAGE_DIR = LESION_TEST_DIR / "image"
@@ -223,6 +233,7 @@ print("DR checkpoint:", DR_MODEL)
 print("Resized EyePACS labels:", RESIZED_DR_CSV or "not supplied")
 print("Glaucoma checkpoint:", GLAUCOMA_MODEL or "MISSING - evaluation will be skipped")
 print("Cataract checkpoint:", CATARACT_MODEL or "MISSING - evaluation will be skipped")
+print("Competing four-class checkpoints:", MULTICLASS_MODEL_FILES)
 print("Segmentation checkpoints:", SEGMENTATION_MODEL_FILES)
 model_metadata_rows = []
 
@@ -446,6 +457,402 @@ if len(dataset_distributions):
                 ha="center", va="bottom", fontsize=8,
             )
     save_figure("all_supplied_dataset_distributions.png")
+
+# %% [markdown]
+# ## Paired comparison of competing four-class models
+#
+# EfficientNet-B0, MobileNetV3-Large, and EfficientNet-B3 are evaluated on
+# exactly the same image IDs and labels. The comparison reports multiclass
+# performance, one-vs-rest ROC/PR curves, confusion matrices, Cochran's Q,
+# pairwise exact McNemar tests with Holm correction, and paired bootstrap
+# confidence intervals for performance differences.
+#
+# This is an internal comparison unless the selected images were excluded
+# from training and model selection for every checkpoint. Standard RGB resize
+# plus ImageNet normalization is used because checkpoint-specific preprocessing
+# metadata was not embedded in the supplied weight files.
+
+# %%
+class EfficientNetB0FourClass(nn.Module):
+    def __init__(self):
+        super().__init__()
+        self.base_model = tv_models.efficientnet_b0(weights=None)
+        in_features = self.base_model.classifier[1].in_features
+        self.base_model.classifier[1] = nn.Linear(in_features, len(EYE_CLASS_NAMES))
+
+    def forward(self, images):
+        return self.base_model(images)
+
+
+class MobileNetV3LargeFourClass(nn.Module):
+    def __init__(self):
+        super().__init__()
+        self.model = tv_models.mobilenet_v3_large(weights=None)
+        in_features = self.model.classifier[3].in_features
+        self.model.classifier[3] = nn.Linear(in_features, len(EYE_CLASS_NAMES))
+
+    def forward(self, images):
+        return self.model(images)
+
+
+class FourClassEyeDataset(Dataset):
+    def __init__(self, paths, labels, image_size):
+        self.paths = list(paths)
+        self.labels = list(labels)
+        self.transform = transforms.Compose([
+            transforms.Resize((image_size, image_size)),
+            transforms.ToTensor(),
+            transforms.Normalize(IMAGENET_MEAN, IMAGENET_STD),
+        ])
+
+    def __len__(self):
+        return len(self.paths)
+
+    def __getitem__(self, index):
+        image = Image.open(self.paths[index]).convert("RGB")
+        return self.transform(image), int(self.labels[index]), self.paths[index]
+
+
+def load_four_class_model(model_name, checkpoint):
+    if model_name == "EfficientNet-B0":
+        model, image_size = EfficientNetB0FourClass(), 224
+    elif model_name == "MobileNetV3-Large":
+        model, image_size = MobileNetV3LargeFourClass(), 224
+    elif model_name == "EfficientNet-B3":
+        model = timm.create_model(
+            "efficientnet_b3", pretrained=False, num_classes=len(EYE_CLASS_NAMES)
+        )
+        image_size = 300
+    else:
+        raise ValueError(f"Unsupported comparison model: {model_name}")
+
+    saved = torch.load(checkpoint, map_location="cpu", weights_only=False)
+    state = saved.get("state_dict", saved.get("model_state_dict", saved))
+    if not isinstance(state, dict):
+        raise ValueError(f"Unsupported checkpoint structure: {checkpoint}")
+    state = {
+        (key[len("module."):] if key.startswith("module.") else key): value
+        for key, value in state.items()
+    }
+    model.load_state_dict(state, strict=True)
+    return model.to(DEVICE).eval(), image_size
+
+
+comparison_paths_all, comparison_labels_all = [], []
+for label, directory_name in enumerate(EYE_CLASS_DIRECTORIES):
+    paths = [str(path) for path in image_files(EYE_DISEASE_DIR / directory_name)]
+    comparison_paths_all.extend(paths)
+    comparison_labels_all.extend([label] * len(paths))
+
+assert comparison_paths_all, f"No four-class images found below {EYE_DISEASE_DIR}"
+_, comparison_paths, _, comparison_truth = train_test_split(
+    comparison_paths_all,
+    comparison_labels_all,
+    test_size=0.15,
+    stratify=comparison_labels_all,
+    random_state=SEED,
+)
+comparison_truth = np.asarray(comparison_truth, dtype=int)
+
+comparison_split = pd.DataFrame({
+    "image_path": comparison_paths,
+    "y_true": comparison_truth,
+    "class_name": [EYE_CLASS_NAMES[value] for value in comparison_truth],
+    "evaluation_set": "shared_internal_validation",
+})
+comparison_split.to_csv(TABLES / "competing_models_shared_evaluation_set.csv", index=False)
+
+comparison_results = {}
+comparison_metric_rows = []
+comparison_prediction_table = comparison_split.copy()
+
+for model_name, checkpoint in MULTICLASS_MODEL_FILES.items():
+    if checkpoint is None or not checkpoint.exists():
+        print(f"SKIPPED {model_name}: checkpoint is missing")
+        continue
+    model, image_size = load_four_class_model(model_name, checkpoint)
+    loader = DataLoader(
+        FourClassEyeDataset(comparison_paths, comparison_truth, image_size),
+        batch_size=BATCH_SIZE, shuffle=False, num_workers=NUM_WORKERS,
+        pin_memory=torch.cuda.is_available(),
+    )
+    probabilities, predictions, ordered_truth, ordered_paths = [], [], [], []
+    inference_started = time.perf_counter()
+    with torch.no_grad():
+        for images, labels_batch, paths_batch in tqdm(loader, desc=model_name):
+            batch_probability = torch.softmax(model(images.to(DEVICE)), dim=1)
+            probabilities.append(batch_probability.cpu().numpy())
+            predictions.extend(batch_probability.argmax(dim=1).cpu().numpy().tolist())
+            ordered_truth.extend(labels_batch.numpy().tolist())
+            ordered_paths.extend(paths_batch)
+    inference_seconds = time.perf_counter() - inference_started
+    probabilities = np.concatenate(probabilities)
+    predictions = np.asarray(predictions, dtype=int)
+    ordered_truth = np.asarray(ordered_truth, dtype=int)
+    assert ordered_paths == comparison_paths
+    assert np.array_equal(ordered_truth, comparison_truth)
+    checkpoint_metadata(
+        f"Four-class {model_name}", model, checkpoint,
+        inference_seconds, len(comparison_truth),
+    )
+
+    metrics = {
+        "model": model_name,
+        "n": len(comparison_truth),
+        "input_size": image_size,
+        "accuracy": accuracy_score(comparison_truth, predictions),
+        "balanced_accuracy": balanced_accuracy_score(comparison_truth, predictions),
+        "macro_f1": f1_score(comparison_truth, predictions, average="macro"),
+        "weighted_f1": f1_score(comparison_truth, predictions, average="weighted"),
+        "macro_precision": precision_score(
+            comparison_truth, predictions, average="macro", zero_division=0
+        ),
+        "macro_recall": recall_score(
+            comparison_truth, predictions, average="macro", zero_division=0
+        ),
+        "mcc": matthews_corrcoef(comparison_truth, predictions),
+        "macro_auc_ovr": roc_auc_score(
+            comparison_truth, probabilities, multi_class="ovr", average="macro"
+        ),
+        "weighted_auc_ovr": roc_auc_score(
+            comparison_truth, probabilities, multi_class="ovr", average="weighted"
+        ),
+        "log_loss": log_loss(
+            comparison_truth, probabilities, labels=range(len(EYE_CLASS_NAMES))
+        ),
+        "inference_seconds": inference_seconds,
+        "milliseconds_per_image": 1000 * inference_seconds / len(comparison_truth),
+    }
+    comparison_metric_rows.append(metrics)
+    comparison_results[model_name] = {
+        "prediction": predictions,
+        "probability": probabilities,
+        "correct": predictions == comparison_truth,
+    }
+
+    safe_name = model_name.lower().replace("-", "_")
+    comparison_prediction_table[f"{safe_name}_prediction"] = predictions
+    for class_index, class_name in enumerate(EYE_CLASS_NAMES):
+        class_key = class_name.lower().replace(" ", "_")
+        comparison_prediction_table[
+            f"{safe_name}_probability_{class_key}"
+        ] = probabilities[:, class_index]
+
+    report = pd.DataFrame(classification_report(
+        comparison_truth, predictions, labels=range(len(EYE_CLASS_NAMES)),
+        target_names=EYE_CLASS_NAMES, output_dict=True, zero_division=0,
+    )).T
+    report.to_csv(TABLES / f"comparison_{safe_name}_classification_report.csv")
+    specificity = specificity_per_class(
+        comparison_truth, predictions, range(len(EYE_CLASS_NAMES))
+    )
+    specificity["class_name"] = EYE_CLASS_NAMES
+    specificity.to_csv(
+        TABLES / f"comparison_{safe_name}_sensitivity_specificity.csv", index=False
+    )
+
+comparison_metrics = pd.DataFrame(comparison_metric_rows)
+comparison_metrics.to_csv(TABLES / "competing_models_metrics.csv", index=False)
+comparison_prediction_table.to_csv(
+    TABLES / "competing_models_image_level_predictions.csv", index=False
+)
+
+if len(comparison_results) >= 2:
+    metric_columns = [
+        "accuracy", "balanced_accuracy", "macro_f1", "weighted_f1", "macro_auc_ovr"
+    ]
+    comparison_metrics.set_index("model")[metric_columns].plot(
+        kind="bar", figsize=(13, 6), ylim=(0, 1), rot=15
+    )
+    plt.ylabel("Score")
+    plt.title("Competing four-class models on the identical evaluation set")
+    plt.legend(loc="lower right")
+    save_figure("competing_models_performance_comparison.png")
+
+    model_names = list(comparison_results)
+    fig, axes = plt.subplots(1, len(model_names), figsize=(6 * len(model_names), 5))
+    axes = np.atleast_1d(axes)
+    for axis, model_name in zip(axes, model_names):
+        matrix = confusion_matrix(
+            comparison_truth, comparison_results[model_name]["prediction"],
+            labels=range(len(EYE_CLASS_NAMES)),
+        )
+        sns.heatmap(
+            matrix, annot=True, fmt="d", cmap="Blues", ax=axis,
+            xticklabels=EYE_CLASS_NAMES, yticklabels=EYE_CLASS_NAMES,
+        )
+        axis.set_title(model_name)
+        axis.set_xlabel("Predicted")
+        axis.set_ylabel("True")
+        axis.tick_params(axis="x", rotation=25)
+    save_figure("competing_models_confusion_matrices.png")
+
+    truth_binary = label_binarize(
+        comparison_truth, classes=range(len(EYE_CLASS_NAMES))
+    )
+    fig, axes = plt.subplots(2, 2, figsize=(14, 11))
+    for class_index, (axis, class_name) in enumerate(
+        zip(axes.ravel(), EYE_CLASS_NAMES)
+    ):
+        for model_name in model_names:
+            probability = comparison_results[model_name]["probability"][:, class_index]
+            fpr, tpr, _ = roc_curve(truth_binary[:, class_index], probability)
+            auc_value = roc_auc_score(truth_binary[:, class_index], probability)
+            axis.plot(fpr, tpr, label=f"{model_name} AUC={auc_value:.3f}")
+        axis.plot([0, 1], [0, 1], "k--")
+        axis.set(
+            title=f"{class_name} one-vs-rest ROC",
+            xlabel="False-positive rate", ylabel="True-positive rate",
+        )
+        axis.legend(fontsize=8)
+    save_figure("competing_models_per_class_roc.png")
+
+    fig, axes = plt.subplots(2, 2, figsize=(14, 11))
+    for class_index, (axis, class_name) in enumerate(
+        zip(axes.ravel(), EYE_CLASS_NAMES)
+    ):
+        for model_name in model_names:
+            probability = comparison_results[model_name]["probability"][:, class_index]
+            precision, recall, _ = precision_recall_curve(
+                truth_binary[:, class_index], probability
+            )
+            ap = average_precision_score(truth_binary[:, class_index], probability)
+            axis.plot(recall, precision, label=f"{model_name} AP={ap:.3f}")
+        axis.set(
+            title=f"{class_name} one-vs-rest precision-recall",
+            xlabel="Recall", ylabel="Precision",
+        )
+        axis.legend(fontsize=8)
+    save_figure("competing_models_per_class_precision_recall.png")
+
+    correctness = np.column_stack([
+        comparison_results[name]["correct"].astype(int) for name in model_names
+    ])
+    k_models = correctness.shape[1]
+    column_sums = correctness.sum(axis=0)
+    row_sums = correctness.sum(axis=1)
+    total = correctness.sum()
+    denominator = k_models * total - np.sum(row_sums ** 2)
+    cochran_q = (
+        (k_models - 1)
+        * (k_models * np.sum(column_sums ** 2) - total ** 2)
+        / denominator
+        if denominator else np.nan
+    )
+    cochran_p = (
+        float(chi2.sf(cochran_q, k_models - 1)) if np.isfinite(cochran_q) else np.nan
+    )
+    pd.DataFrame([{
+        "test": "Cochran Q",
+        "models": " | ".join(model_names),
+        "n_images": len(comparison_truth),
+        "statistic": cochran_q,
+        "degrees_of_freedom": k_models - 1,
+        "p_value": cochran_p,
+    }]).to_csv(TABLES / "competing_models_cochran_q.csv", index=False)
+
+    rng = np.random.default_rng(SEED)
+    bootstrap_indices = [
+        rng.integers(0, len(comparison_truth), len(comparison_truth))
+        for _ in range(N_BOOTSTRAP)
+    ]
+    pairwise_rows = []
+    for first_index, first_name in enumerate(model_names):
+        for second_name in model_names[first_index + 1:]:
+            first = comparison_results[first_name]
+            second = comparison_results[second_name]
+            first_only_correct = int(np.sum(first["correct"] & ~second["correct"]))
+            second_only_correct = int(np.sum(~first["correct"] & second["correct"]))
+            discordant = first_only_correct + second_only_correct
+            mcnemar_p = (
+                binomtest(
+                    min(first_only_correct, second_only_correct),
+                    n=discordant, p=0.5, alternative="two-sided",
+                ).pvalue
+                if discordant else 1.0
+            )
+            accuracy_differences, f1_differences, auc_differences = [], [], []
+            for indices in bootstrap_indices:
+                truth_sample = comparison_truth[indices]
+                first_prediction = first["prediction"][indices]
+                second_prediction = second["prediction"][indices]
+                accuracy_differences.append(
+                    accuracy_score(truth_sample, first_prediction)
+                    - accuracy_score(truth_sample, second_prediction)
+                )
+                f1_differences.append(
+                    f1_score(truth_sample, first_prediction, average="macro", zero_division=0)
+                    - f1_score(truth_sample, second_prediction, average="macro", zero_division=0)
+                )
+                try:
+                    auc_differences.append(
+                        roc_auc_score(
+                            truth_sample, first["probability"][indices],
+                            multi_class="ovr", average="macro",
+                        )
+                        - roc_auc_score(
+                            truth_sample, second["probability"][indices],
+                            multi_class="ovr", average="macro",
+                        )
+                    )
+                except ValueError:
+                    pass
+
+            def interval(values):
+                return np.percentile(np.asarray(values), [2.5, 97.5]).tolist()
+
+            accuracy_ci = interval(accuracy_differences)
+            f1_ci = interval(f1_differences)
+            auc_ci = interval(auc_differences) if auc_differences else [np.nan, np.nan]
+            pairwise_rows.append({
+                "model_a": first_name,
+                "model_b": second_name,
+                "a_correct_b_wrong": first_only_correct,
+                "a_wrong_b_correct": second_only_correct,
+                "discordant_pairs": discordant,
+                "mcnemar_exact_p_raw": mcnemar_p,
+                "accuracy_difference_a_minus_b": float(np.mean(first["correct"]))
+                - float(np.mean(second["correct"])),
+                "accuracy_difference_ci95_low": accuracy_ci[0],
+                "accuracy_difference_ci95_high": accuracy_ci[1],
+                "macro_f1_difference_a_minus_b": f1_score(
+                    comparison_truth, first["prediction"], average="macro"
+                ) - f1_score(comparison_truth, second["prediction"], average="macro"),
+                "macro_f1_difference_ci95_low": f1_ci[0],
+                "macro_f1_difference_ci95_high": f1_ci[1],
+                "macro_auc_difference_a_minus_b": roc_auc_score(
+                    comparison_truth, first["probability"],
+                    multi_class="ovr", average="macro",
+                ) - roc_auc_score(
+                    comparison_truth, second["probability"],
+                    multi_class="ovr", average="macro",
+                ),
+                "macro_auc_difference_ci95_low": auc_ci[0],
+                "macro_auc_difference_ci95_high": auc_ci[1],
+            })
+
+    pairwise = pd.DataFrame(pairwise_rows)
+    order = np.argsort(pairwise["mcnemar_exact_p_raw"].to_numpy())
+    adjusted = np.empty(len(pairwise), dtype=float)
+    running_maximum = 0.0
+    for rank, row_index in enumerate(order):
+        candidate = min(
+            1.0,
+            (len(pairwise) - rank)
+            * pairwise.iloc[row_index]["mcnemar_exact_p_raw"],
+        )
+        running_maximum = max(running_maximum, candidate)
+        adjusted[row_index] = running_maximum
+    pairwise["mcnemar_p_holm"] = adjusted
+    pairwise["significant_after_holm_0_05"] = pairwise["mcnemar_p_holm"] < 0.05
+    pairwise.to_csv(
+        TABLES / "competing_models_pairwise_statistical_tests.csv", index=False
+    )
+else:
+    warnings.warn(
+        "Fewer than two competing four-class checkpoints were found; "
+        "paired statistical comparison was skipped."
+    )
 
 # %% [markdown]
 # ## DR severity evaluation
@@ -1323,8 +1730,16 @@ pd.DataFrame(model_metadata_rows).to_csv(TABLES / "model_checkpoint_and_runtime_
 
 # %%
 with pd.ExcelWriter(OUTPUT / "OphthalmicAI_publication_results.xlsx", engine="openpyxl") as writer:
+    used_sheet_names = set()
     for csv_path in sorted(TABLES.glob("*.csv")):
-        sheet = csv_path.stem[:31]
+        base = csv_path.stem[:31]
+        sheet = base
+        suffix = 2
+        while sheet.lower() in used_sheet_names:
+            marker = f"_{suffix}"
+            sheet = base[:31 - len(marker)] + marker
+            suffix += 1
+        used_sheet_names.add(sheet.lower())
         pd.read_csv(csv_path).to_excel(writer, sheet_name=sheet, index=False)
 
 manifest_rows = []
@@ -1356,6 +1771,21 @@ if (TABLES / "dr_metrics_summary.json").exists():
         f"- MAE: {values['mae_grades']:.4f} grades",
         f"- Within-one-grade accuracy: {values['within_one_grade_accuracy']:.4f}",
     ]
+if (TABLES / "competing_models_metrics.csv").exists():
+    competing = pd.read_csv(TABLES / "competing_models_metrics.csv")
+    if len(competing):
+        draft_lines += ["", "## Competing four-class models"]
+        for row in competing.itertuples():
+            draft_lines.append(
+                f"- {row.model}: accuracy {row.accuracy:.4f}, "
+                f"macro F1 {row.macro_f1:.4f}, macro OVR AUC {row.macro_auc_ovr:.4f}"
+            )
+        if (TABLES / "competing_models_cochran_q.csv").exists():
+            omnibus = pd.read_csv(TABLES / "competing_models_cochran_q.csv").iloc[0]
+            draft_lines.append(
+                f"- Cochran Q={omnibus.statistic:.4f}, "
+                f"df={int(omnibus.degrees_of_freedom)}, p={omnibus.p_value:.6g}"
+            )
 draft_lines += [
     "",
     "## Required interpretation",

@@ -42,6 +42,13 @@ Run `OphthalmicAI_Kaggle_Publication_Evaluation.ipynb` and download the generate
 - Bootstrap 95% confidence intervals for accuracy, macro F1, and QWK.
 - Image-level glaucoma and cataract files containing ground truth, probability, and predicted class.
 - Glaucoma and cataract confusion matrices, classification reports, ROC AUC, average precision, calibration, and 95% confidence intervals.
+- Image-level predictions and four-class probabilities from EfficientNet-B0,
+  MobileNetV3-Large, and EfficientNet-B3 for the identical evaluation image IDs.
+- Competing-model accuracy, balanced accuracy, macro/weighted F1, MCC,
+  multiclass one-vs-rest AUC, log loss, parameter count, and inference time.
+- Cochran's Q omnibus comparison, pairwise exact McNemar tests with Holm
+  correction, and paired bootstrap 95% confidence intervals for differences
+  in accuracy, macro F1, and macro AUC.
 - Per-image segmentation metrics for every biomarker.
 - Segmentation mean, SD, median, and bootstrap 95% confidence intervals.
 - Exact threshold-sweep results for each segmentation model.
@@ -60,6 +67,8 @@ Run `OphthalmicAI_Kaggle_Publication_Evaluation.ipynb` and download the generate
 - Glaucoma ROC and precision-recall curves.
 - Cataract ROC and precision-recall curves.
 - Glaucoma and cataract reliability diagrams.
+- Competing-model performance chart, side-by-side confusion matrices, and
+  per-class ROC and precision-recall comparisons.
 - Segmentation pixel ROC and precision-recall curves for OD, EX, SE, MA, and HE.
 - Segmentation threshold-versus-Dice/IoU/precision/recall curves.
 - Segmentation training and validation loss/Dice/IoU curves exported directly from saved history, not manually redrawn.
@@ -96,6 +105,9 @@ Run `OphthalmicAI_Kaggle_Publication_Evaluation.ipynb` and download the generate
 ## Interpretation rules
 
 - Use "internal validation" for the existing model-selection splits.
+- Statistical comparisons are valid only when every competing model is
+  evaluated on the exact same image IDs. State whether those images were
+  excluded from training and checkpoint selection for all models.
 - Do not call them independent test results.
 - Do not report a five-class one-vs-rest ROC curve from the scalar DR regression checkpoint.
 - For the scalar DR model, report ROC/PR for clinically meaningful ordinal thresholds: Any DR (grade >=1), Referable DR (grade >=2), and Vision-threatening DR (grade >=3).
