@@ -1030,9 +1030,10 @@ def build_segmentation_manifests():
         print(f"{biomarker}: {len(frame)} audited image-mask pairs")
 
     if not any(pd.read_csv(path).shape[0] for path in manifests.values()):
-        raise RuntimeError(
+        warnings.warn(
             "No masks could be paired safely. Open segmentation_pairing_audit.csv. "
-            "Mask folders or filenames must identify OD, EX, SE, MA, or HE."
+            "Mask folders or filenames must identify OD, EX, SE, MA, or HE. "
+            "Other result sections will still be exported."
         )
     return manifests
 
