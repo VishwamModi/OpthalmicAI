@@ -18,7 +18,6 @@ RUN python -m pip install --no-cache-dir \
 
 COPY backend /app/backend
 COPY Models/OphthalmicAI_Final_EffNetB3.pt /app/Models/OphthalmicAI_Final_EffNetB3.pt
-COPY Models/segmentation /app/Models/segmentation
 
 EXPOSE 7860
 

@@ -7,16 +7,25 @@ services:
     dockerfilePath: ./Dockerfile
     dockerContext: .
     healthCheckPath: /api/health
+    envVars:
+      - key: ENABLE_SEGMENTATION
+        value: "false"
+      - key: ENABLE_GRADCAM
+        value: "false"
+      - key: TORCH_NUM_THREADS
+        value: "1"
+      - key: SUPABASE_DATABASE_URL
+        sync: false
+      - key: AUTH_SALT
+        generateValue: true
     autoDeployTrigger: commit
 
   - type: web
     name: opthalmicai-frontend
-    runtime: node
-    plan: free
-    region: singapore
+    runtime: static
     rootDir: frontend
     buildCommand: corepack enable && pnpm install --frozen-lockfile && pnpm build
-    startCommand: pnpm start -- -p $PORT
+    staticPublishPath: ./out
     envVars:
       - key: NEXT_PUBLIC_API_BASE_URL
         sync: false

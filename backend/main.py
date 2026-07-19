@@ -80,6 +80,8 @@ async def health() -> Dict[str, object]:
         "database_url": _redact_db_url(SQLALCHEMY_DATABASE_URL),
         "gemini_key_present": bool(os.getenv("GEMINI_API_KEY")),
         "gradcam_available": bool(getattr(_ae, "GradCAM", None) and getattr(_ae, "show_cam_on_image", None)),
+        "gradcam_enabled": bool(getattr(_ae, "ENABLE_GRADCAM", False)),
+        "segmentation_enabled": bool(getattr(_ae, "ENABLE_SEGMENTATION", False)),
     }
 
 
@@ -137,7 +139,7 @@ def _startup() -> None:
         print(f"[startup] WARNING: runtime schema patch failed: {e}")
 
     _DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    # Preload model weights (classification + segmentation) at startup.
+    # Preload the enabled inference models at startup.
     try:
         AIEngine.instance()
         print("[startup] AIEngine loaded successfully.")

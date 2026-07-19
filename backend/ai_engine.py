@@ -54,6 +54,17 @@ IMAGENET_STD: Tuple[float, float, float] = (0.229, 0.224, 0.225)
 DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 SEG_INPUT_SIZE = 512
 
+
+def _env_enabled(name: str, default: bool) -> bool:
+    value = os.getenv(name)
+    if value is None:
+        return default
+    return value.strip().lower() in {"1", "true", "yes", "on"}
+
+
+ENABLE_SEGMENTATION = _env_enabled("ENABLE_SEGMENTATION", True)
+ENABLE_GRADCAM = _env_enabled("ENABLE_GRADCAM", True)
+
 SEGMENTATION_SPECS: dict[str, dict[str, Any]] = {
     "OD": {
         "arch": "UnetPlusPlus",
@@ -517,6 +528,9 @@ def _gradcam_overlay_b64(model: torch.nn.Module, x: torch.Tensor) -> str | None:
     Generate Grad-CAM overlay on the preprocessed 300x300 image.
     Returns base64 PNG string, or None if grad-cam is unavailable.
     """
+    if not ENABLE_GRADCAM:
+        return None
+
     try:
         if GradCAM is None or show_cam_on_image is None:
             return None
@@ -592,18 +606,20 @@ class AIEngine:
         dr_path: Path,
         segmentation_dir: Path,
     ) -> None:
-        if smp is None:
+        if ENABLE_SEGMENTATION and smp is None:
             raise ImportError(
                 "segmentation-models-pytorch is required for segmentation inference. Install it in backend requirements."
             )
 
         self.device = DEVICE
+        torch.set_num_threads(max(1, int(os.getenv("TORCH_NUM_THREADS", "1"))))
 
         self.dr_model = _build_effnet_b3()
         self.segmentation_models: dict[str, torch.nn.Module] = {}
 
         self._load_weights(self.dr_model, dr_path)
-        self._load_segmentation_models(segmentation_dir)
+        if ENABLE_SEGMENTATION:
+            self._load_segmentation_models(segmentation_dir)
 
         self.dr_model.to(self.device).eval()
 
@@ -908,10 +924,16 @@ class AIEngine:
 
         recommendation = self._build_recommendation(dr_stage)
 
-        # --- Real segmentation clinical features ---
-        masks, segmentation_images = self._run_segmentation_models(image_bytes)
-        extracted = extract_clinical_features(masks)
-        clinical_features = self._build_clinical_features_from_masks(extracted)
+        # Lesion segmentation is optional because the free Render instance has
+        # 512 MB RAM. Research and local deployments can enable it explicitly.
+        if ENABLE_SEGMENTATION:
+            masks, segmentation_images = self._run_segmentation_models(image_bytes)
+            extracted = extract_clinical_features(masks)
+            clinical_features = self._build_clinical_features_from_masks(extracted)
+        else:
+            segmentation_images = {}
+            extracted = {}
+            clinical_features = []
 
         severity_stages = [
             {

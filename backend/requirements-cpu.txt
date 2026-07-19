@@ -4,10 +4,7 @@ fastapi
 uvicorn
 python-multipart
 opencv-python-headless
-grad-cam
 timm
-segmentation-models-pytorch
 sqlalchemy
 psycopg2-binary
-google-genai
 python-dotenv

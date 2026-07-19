@@ -19,6 +19,7 @@ frontend/.env*.local
 # Frontend build artifacts
 frontend/node_modules/
 frontend/.next/
+frontend/out/
 
 # Local media (hosted on YouTube instead)
 frontend/public/images/app_overview.mov
